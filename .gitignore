@@ -1,0 +1,24 @@
+# === .NET ===
+bin/
+obj/
+*.user
+*.suo
+*.pdb
+*.exe
+*.dll
+
+# === React/Vite ===
+node_modules/
+dist/
+*.env
+*.log
+
+# === VSCode ===
+.vscode/
+
+# === Visual Studio ===
+.vs/
+
+# === System Files ===
+.DS_Store
+Thumbs.db

@@ -1,10 +1,12 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using SmartShift.Domain.Features.Employees;
 using SmartShift.Domain.Features.Scheduling;
 
 namespace SmartShift.Infrastructure.Data;
 
-public class ApplicationDbContext : DbContext
+public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
     {
@@ -31,6 +33,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.LastName).IsRequired();
             entity.Property(e => e.Email).IsRequired();
             entity.Property(e => e.PhoneNumber).IsRequired();
+        });
+
+        modelBuilder.Entity<ApplicationUser>(entity =>
+        {
+            entity.Property(e => e.FullName).IsRequired();
+            entity.Property(e => e.CreatedAt).IsRequired();
         });
     }
 } 

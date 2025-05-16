@@ -1,22 +1,20 @@
 using Carter;
 using MediatR;
 using SmartShift.Api.Requests;
-using SmartShift.Application.Authentication.Register;
-
+using SmartShift.Application.Authentication.Login;
 
 namespace SmartShift.Api.Endpoints;
 
-public class RegisterEndpoint : ICarterModule
+public class LoginEndpoint : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/account/register", async (
-            RegisterRequest request,
+        app.MapPost("/api/account/login", async (
+            LoginRequest request,
             IMediator mediator) =>
         {
-            var command = new RegisterCommand
+            var command = new LoginCommand
             {
-                FullName = request.FullName,
                 Email = request.Email,
                 Password = request.Password
             };
@@ -28,9 +26,9 @@ public class RegisterEndpoint : ICarterModule
                 return Results.BadRequest(new { Message = result.Message });
             }
 
-            return Results.Ok(new { Message = result.Message });
+            return Results.Ok(new { Message = result.Message, Token = result.Token });
         })
-        .WithName("Register")
+        .WithName("Login")
         .WithTags("Account");
     }
 }

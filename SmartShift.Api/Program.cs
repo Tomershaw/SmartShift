@@ -1,17 +1,20 @@
 using Carter;
 using FluentValidation;
 using MediatR;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using SmartShift.Application;
+using SmartShift.Application.Common.Behaviors;
+using SmartShift.Infrastructure.Authentication;
 using SmartShift.Infrastructure.Data;
 using SmartShift.Infrastructure.Features.Employees.Repositories;
 using SmartShift.Infrastructure.Features.Scheduling.Repositories;
 using System.Reflection;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
-
-
 
 // Add services to the container
 builder.Services.AddEndpointsApiExplorer();
@@ -21,7 +24,7 @@ builder.Services.AddApplication();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Add Identity
+// Add Identity with password policy
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
     options.Password.RequireDigit = true;
@@ -35,14 +38,41 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 
 builder.Services.AddCarter();
 
+// Add JWT Authentication
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+        };
+    });
+
+// Add Authorization BEFORE Build
+builder.Services.AddAuthorization();
+
+// Add DI for JWT Token Generator
+builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+
+// MediatR Configuration
 builder.Services.AddMediatR(cfg =>
 {
     cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly());
     cfg.RegisterServicesFromAssembly(typeof(SmartShift.Application.DependencyInjection).Assembly);
 });
 
+// Add FluentValidation
 builder.Services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
 builder.Services.AddValidatorsFromAssembly(typeof(SmartShift.Application.DependencyInjection).Assembly);
+
+// Add Validation Pipeline Behavior
+builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
 builder.Services.AddCors(options =>
 {
@@ -67,13 +97,11 @@ if (app.Environment.IsDevelopment())
     await SeedData.SeedShiftsAsync(context);
 }
 
-// Seed the Database and Apply Migrations
+// Apply Migrations and Seed Data
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    // Apply migrations first to ensure the DB schema is up to date
-        context.Database.Migrate();
-    // Run Seed Data (only if necessary)
+    context.Database.Migrate();
     await SeedData.SeedEmployeesAsync(context);
 }
 
@@ -81,11 +109,16 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
-}
+}   
 
 app.UseHttpsRedirection();
 app.UseRouting();
 app.UseCors("AllowFrontend");
+
+// Authentication & Authorization Middleware
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapCarter();
 
 app.Run();

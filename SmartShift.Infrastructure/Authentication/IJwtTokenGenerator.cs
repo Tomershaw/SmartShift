@@ -1,8 +1,9 @@
 using SmartShift.Infrastructure.Data;
-
+using System.Threading.Tasks;
 
 namespace SmartShift.Infrastructure.Authentication;
+
 public interface IJwtTokenGenerator
 {
-    string GenerateToken(ApplicationUser user);
+    Task<string> GenerateTokenAsync(ApplicationUser user);
 }

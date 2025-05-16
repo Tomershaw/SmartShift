@@ -29,7 +29,8 @@ public class LoginHandler : IRequestHandler<LoginCommand, LoginResult>
         }
 
         // Generate real JWT token
-        var token = _tokenGenerator.GenerateToken(user);
+        var token = await _tokenGenerator.GenerateTokenAsync(user);
+
 
 
         return new LoginResult

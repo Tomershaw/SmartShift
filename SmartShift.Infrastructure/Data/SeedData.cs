@@ -1,6 +1,7 @@
-using SmartShift.Domain.Features.Employees;
-using SmartShift.Domain.Features.Scheduling;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using SmartShift.Domain.Features.Employees;
 using SmartShift.Domain.Features.Scheduling;
 
 namespace SmartShift.Infrastructure.Data;
@@ -56,6 +57,28 @@ public static class SeedData
         catch (Exception ex)
         {
             Console.WriteLine($"Error seeding shifts: {ex.Message}");
+        }
+    }
+
+    public static async Task SeedRolesAsync(IServiceProvider serviceProvider)
+    {
+        try
+        {
+            var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+
+            string[] roleNames = { "Admin", "Employee" };
+
+            foreach (var roleName in roleNames)
+            {
+                if (!await roleManager.RoleExistsAsync(roleName))
+                {
+                    await roleManager.CreateAsync(new IdentityRole(roleName));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error seeding roles: {ex.Message}");
         }
     }
 }

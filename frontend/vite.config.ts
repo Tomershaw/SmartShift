@@ -4,6 +4,9 @@ import react from "@vitejs/plugin-react";
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  css: {
+    postcss: "./postcss.config.js", // טוען את הקובץ PostCSS בו מוגדר Tailwind
+  },
   server: {
     proxy: {
       "/api": {

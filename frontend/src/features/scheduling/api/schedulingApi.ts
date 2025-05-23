@@ -1,60 +1,37 @@
 import type { Employee, Shift } from "../types";
-
-const API_BASE_URL = "https://localhost:7002/api/scheduling";
+import api from "../../../services/api";
 
 export const schedulingApi = {
   async getEmployees(): Promise<Employee[]> {
-    const response = await fetch(`${API_BASE_URL}/employees`);
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Failed to fetch employees: ${text}`);
-    }
-    return response.json();
+    const response = await api.get<Employee[]>("/scheduling/employees");
+    return response.data;
   },
 
   async getShifts(startDate: string, endDate: string): Promise<Shift[]> {
-    const response = await fetch(
-      `${API_BASE_URL}/shifts?startDate=${startDate}&endDate=${endDate}`
-    );
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Failed to fetch shifts: ${text}`);
-    }
-    return response.json();
+    const response = await api.get<Shift[]>(`/scheduling/shifts`, {
+      params: { startDate, endDate },
+    });
+    return response.data;
   },
 
   async assignEmployeeToShift(
     shiftId: string,
     employeeId: string
   ): Promise<Shift> {
-    const response = await fetch(`${API_BASE_URL}/shifts/${shiftId}/assign`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employeeId }),
-    });
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Failed to assign employee to shift: ${text}`);
-    }
-    return response.json();
+    const response = await api.post<Shift>(`/scheduling/shifts/${shiftId}/assign`, { employeeId });
+    return response.data;
   },
 
   async updateEmployeePriority(
     employeeId: string,
     priorityRating: number
   ): Promise<Employee> {
-    const response = await fetch(
-      `${API_BASE_URL}/employees/${employeeId}/priority`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ priorityRating }),
-      }
+    const response = await api.put<Employee>(
+      `/scheduling/employees/${employeeId}/priority`,
+      { priorityRating }
     );
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Failed to update employee priority: ${text}`);
-    }
-    return response.json();
+    return response.data;
   },
+
+                                                                                         
 };

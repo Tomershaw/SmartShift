@@ -14,6 +14,8 @@ using SmartShift.Infrastructure.Features.Scheduling.Repositories;
 using System.Reflection;
 using System.Text;
 using Microsoft.OpenApi.Models;
+using System.Security.Claims;
+using SmartShift.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -60,8 +62,12 @@ builder.Services.AddApplication();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Add Identity with password policy
-builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+// ❌ היה פה קודם:
+// builder.Services.AddIdentity<ApplicationUser, IdentityRole>(...) 
+// זה הוסיף גם Cookie Authentication וגרם ל־302 Redirect לא רצוי
+
+// ✅ במקום זה שמנו IdentityCore – רק מה שצריך ל־JWT, בלי cookies
+builder.Services.AddIdentityCore<ApplicationUser>(options =>
 {
     options.Password.RequireDigit = true;
     options.Password.RequireLowercase = true;
@@ -69,12 +75,13 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     options.Password.RequireNonAlphanumeric = true;
     options.Password.RequiredLength = 8;
 })
+.AddRoles<IdentityRole>()
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
 builder.Services.AddCarter();
 
-// Add JWT Authentication
+// ✅ JWT Authentication עם טיפול ב־401/403 במקום Redirect ל־login
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -84,41 +91,81 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
+            RoleClaimType = ClaimTypes.Role,
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)
             )
         };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogInformation("📢 Raw Token Received: {Token}", context.Token);
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogInformation("✅ Token Successfully Validated");
+
+                foreach (var claim in context.Principal!.Claims)
+                {
+                    logger.LogInformation("📢 Claim Type: {Type}, Value: {Value}", claim.Type, claim.Value);
+                }
+
+                return Task.CompletedTask;
+            },
+            OnAuthenticationFailed = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogError(context.Exception, "❌ Authentication Failed");
+                return Task.CompletedTask;
+            },
+            // ✅ במקום 302 Redirect כשאין טוקן – מחזיר 401 עם JSON
+            OnChallenge = context =>
+            {
+                context.HandleResponse();
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                context.Response.ContentType = "application/json";
+                return context.Response.WriteAsync("{\"error\": \"Unauthorized\"}");
+            },
+            // ✅ במקום Redirect כשיש טוקן אבל אין הרשאה – מחזיר 403
+            OnForbidden = context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                context.Response.ContentType = "application/json";
+                return context.Response.WriteAsync("{\"error\": \"Forbidden\"}");
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
 
-// DI for JWT Token Generator
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
-// MediatR Configuration
 builder.Services.AddMediatR(cfg =>
 {
     cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly());
     cfg.RegisterServicesFromAssembly(typeof(SmartShift.Application.DependencyInjection).Assembly);
 });
 
-// FluentValidation Configuration
 builder.Services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
 builder.Services.AddValidatorsFromAssembly(typeof(SmartShift.Application.DependencyInjection).Assembly);
 
-// Add Validation Pipeline Behavior
 builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
-// CORS Policy
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "https://localhost:5173")
+        policy.WithOrigins("http://localhost:5173")
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 
@@ -136,7 +183,7 @@ using (var scope = app.Services.CreateScope())
     await SeedData.SeedShiftsAsync(services.GetRequiredService<ApplicationDbContext>());
 }
 
-// Apply Migrations and Seed Data Again (if needed)
+// Apply Migrations
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -150,12 +197,17 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+app.UseExceptionMiddleware();
 
 app.UseHttpsRedirection();
 app.UseRouting();
 app.UseCors("AllowFrontend");
 
 app.UseAuthentication();
+
+// ❌ מחקנו את ה־Middleware שגרם ללוגים אינסופיים בכל קריאה
+// ❌ זה היה הגורם ללולאה בלוגים: app.Use(async (context, next) => ... );
+
 app.UseAuthorization();
 
 app.MapCarter();

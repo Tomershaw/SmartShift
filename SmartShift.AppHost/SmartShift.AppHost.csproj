@@ -18,4 +18,11 @@
     <ProjectReference Include="..\SmartShift.Api\SmartShift.Api.csproj" />
     <ProjectReference Include="..\SmartShift.Infrastructure\SmartShift.Infrastructure.csproj" IsAspireProjectResource="false" />
   </ItemGroup>
+
+  <ItemGroup>
+  <ProjectReference Include="..\SmartShift.Api\SmartShift.Api.csproj">
+    <Execution>Dotnet</Execution>
+  </ProjectReference>
+</ItemGroup>
+
 </Project>

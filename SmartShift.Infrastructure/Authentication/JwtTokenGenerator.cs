@@ -35,16 +35,25 @@ public class JwtTokenGenerator : IJwtTokenGenerator
             new Claim(ClaimTypes.Name, user.FullName)
         };
 
-        // הוספת ה-Roles ל-Claims
+        // ✅ הוספת ה-Roles עם המפתח "roles" (לא ClaimTypes.Role)
+        //   foreach (var role in roles)
+        //    {
+        //      claims.Add(new Claim("roles", role));
+        //     }
+
+        // ✅ הוספת ה-Roles עם ClaimTypes.Role (הפורמט הסטנדרטי)
         foreach (var role in roles)
         {
-            claims.Add(new Claim(ClaimTypes.Role, role));
+            //claims.Add(new Claim("role", role)); // ✅ נכון כך
+            //claims.Add(new Claim(ClaimTypes.Role, role));
+            claims.Add(new Claim("http://schemas.microsoft.com/ws/2008/06/identity/claims/role", role));
+
         }
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddDays(7),
+            Expires = DateTime.UtcNow.AddSeconds(10),
             SigningCredentials = new SigningCredentials(
                 new SymmetricSecurityKey(key),
                 SecurityAlgorithms.HmacSha256Signature),

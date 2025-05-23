@@ -5,7 +5,7 @@ interface EmployeeCardProps {
 }
 
 export const EmployeeCard = ({ employee }: EmployeeCardProps) => (
-  <li>
+  <li key={employee.id}>
     {employee.name} (דירוג: {employee.priorityRating})
   </li>
 );

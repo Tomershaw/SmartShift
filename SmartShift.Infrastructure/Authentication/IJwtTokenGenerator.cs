@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 
 namespace SmartShift.Infrastructure.Authentication;
 
-public interface IJwtTokenGenerator
+public interface IJwtTokenGenerator     
 {
     Task<string> GenerateTokenAsync(ApplicationUser user);
 }

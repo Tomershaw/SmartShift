@@ -7,6 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 using SmartShift.Infrastructure.Data;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using SmartShift.Domain.Data;
 
 namespace SmartShift.Infrastructure.Authentication;
 
@@ -21,7 +22,7 @@ public class JwtTokenGenerator : IJwtTokenGenerator
         _userManager = userManager;
     }
 
-    public async Task<string> GenerateTokenAsync(ApplicationUser user)
+    public async Task<string> GenerateTokenAsync(Domain.Data.ApplicationUser user)
     {
         var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Key"]!);
         var tokenHandler = new JwtSecurityTokenHandler();
@@ -53,7 +54,7 @@ public class JwtTokenGenerator : IJwtTokenGenerator
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddSeconds(10),
+            Expires = DateTime.UtcNow.AddSeconds(1000),
             SigningCredentials = new SigningCredentials(
                 new SymmetricSecurityKey(key),
                 SecurityAlgorithms.HmacSha256Signature),

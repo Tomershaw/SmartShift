@@ -23,10 +23,18 @@ public class LoginEndpoint : ICarterModule
 
             if (!result.Success)
             {
-                return Results.BadRequest(new { Message = result.Message });
+                return Results.BadRequest(new
+                {
+                    Message = result.Message
+                });
             }
 
-            return Results.Ok(new { Message = result.Message, Token = result.Token });
+            return Results.Ok(new
+            {
+                Message = result.Message,
+                Token = result.Token,
+                RefreshToken = result.RefreshToken
+            });
         })
         .WithName("Login")
         .WithTags("Account");

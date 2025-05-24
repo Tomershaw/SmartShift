@@ -16,13 +16,12 @@ using System.Text;
 using Microsoft.OpenApi.Models;
 using System.Security.Claims;
 using SmartShift.Api.Middleware;
+using SmartShift.Domain.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container
 builder.Services.AddEndpointsApiExplorer();
 
-// ✅ Swagger Configuration with JWT Support
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
@@ -34,11 +33,11 @@ builder.Services.AddSwaggerGen(options =>
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Enter 'Bearer' [space] and then your valid token.\n\nExample: Bearer eyJhbGciOiJIUzI1NiIs..."
+        Description = "Enter 'Bearer' followed by your JWT token."
     });
 
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -62,11 +61,6 @@ builder.Services.AddApplication();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// ❌ היה פה קודם:
-// builder.Services.AddIdentity<ApplicationUser, IdentityRole>(...) 
-// זה הוסיף גם Cookie Authentication וגרם ל־302 Redirect לא רצוי
-
-// ✅ במקום זה שמנו IdentityCore – רק מה שצריך ל־JWT, בלי cookies
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
 {
     options.Password.RequireDigit = true;
@@ -81,7 +75,6 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 
 builder.Services.AddCarter();
 
-// ✅ JWT Authentication עם טיפול ב־401/403 במקום Redirect ל־login
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -92,11 +85,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
             RoleClaimType = ClaimTypes.Role,
+            NameClaimType = "nameid",
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)
             )
+            
         };
 
         options.Events = new JwtBearerEvents
@@ -104,17 +99,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             OnMessageReceived = context =>
             {
                 var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogInformation("📢 Raw Token Received: {Token}", context.Token);
+                logger.LogInformation("\ud83d\udce2 Raw Token Received: {Token}", context.Token);
                 return Task.CompletedTask;
             },
             OnTokenValidated = context =>
             {
                 var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogInformation("✅ Token Successfully Validated");
+                logger.LogInformation("\u2705 Token Successfully Validated");
 
                 foreach (var claim in context.Principal!.Claims)
                 {
-                    logger.LogInformation("📢 Claim Type: {Type}, Value: {Value}", claim.Type, claim.Value);
+                    logger.LogInformation("\ud83d\udce2 Claim Type: {Type}, Value: {Value}", claim.Type, claim.Value);
                 }
 
                 return Task.CompletedTask;
@@ -122,10 +117,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             OnAuthenticationFailed = context =>
             {
                 var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogError(context.Exception, "❌ Authentication Failed");
+                logger.LogError(context.Exception, "\u274c Authentication Failed");
                 return Task.CompletedTask;
             },
-            // ✅ במקום 302 Redirect כשאין טוקן – מחזיר 401 עם JSON
             OnChallenge = context =>
             {
                 context.HandleResponse();
@@ -133,7 +127,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 context.Response.ContentType = "application/json";
                 return context.Response.WriteAsync("{\"error\": \"Unauthorized\"}");
             },
-            // ✅ במקום Redirect כשיש טוקן אבל אין הרשאה – מחזיר 403
             OnForbidden = context =>
             {
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
@@ -171,10 +164,10 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
 builder.Services.AddScoped<IShiftRepository, ShiftRepository>();
+builder.Services.AddScoped<RefreshTokenService>();
 
 var app = builder.Build();
 
-// Seed Data
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -183,7 +176,6 @@ using (var scope = app.Services.CreateScope())
     await SeedData.SeedShiftsAsync(services.GetRequiredService<ApplicationDbContext>());
 }
 
-// Apply Migrations
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -197,19 +189,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-app.UseExceptionMiddleware();
 
+app.UseExceptionMiddleware();
 app.UseHttpsRedirection();
 app.UseRouting();
 app.UseCors("AllowFrontend");
-
-app.UseAuthentication();
-
-// ❌ מחקנו את ה־Middleware שגרם ללוגים אינסופיים בכל קריאה
-// ❌ זה היה הגורם ללולאה בלוגים: app.Use(async (context, next) => ... );
-
+app.UseAuthentication(); 
 app.UseAuthorization();
-
 app.MapCarter();
-
 app.Run();

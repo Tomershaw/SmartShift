@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using SmartShift.Domain.Data;
 using SmartShift.Domain.Features.Employees;
+using SmartShift.Domain.Features.RefreshTokens;
 using SmartShift.Domain.Features.Scheduling;
 
 namespace SmartShift.Infrastructure.Data;
@@ -13,12 +15,14 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     }
 
     public DbSet<Shift> Shifts { get; set; }
+
+    public DbSet<RefreshToken> RefreshTokens { get; set; }
     public DbSet<Employee> Employees { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        
+
         modelBuilder.Entity<Shift>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -40,5 +44,11 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.FullName).IsRequired();
             entity.Property(e => e.CreatedAt).IsRequired();
         });
+
+        modelBuilder.Entity<RefreshToken>()
+          .HasOne(t => t.User)
+          .WithMany()
+          .HasForeignKey(t => t.UserId);
+
     }
-} 
+}

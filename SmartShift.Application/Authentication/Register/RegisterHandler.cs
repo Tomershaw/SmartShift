@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Identity;
+using SmartShift.Domain.Data;
 using SmartShift.Infrastructure.Data;
 
 namespace SmartShift.Application.Authentication.Register;

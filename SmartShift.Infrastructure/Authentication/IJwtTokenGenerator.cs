@@ -1,4 +1,4 @@
-using SmartShift.Infrastructure.Data;
+using SmartShift.Domain.Data;
 using System.Threading.Tasks;
 
 namespace SmartShift.Infrastructure.Authentication;

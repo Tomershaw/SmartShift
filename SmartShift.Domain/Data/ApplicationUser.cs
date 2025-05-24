@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using System;
 using System.ComponentModel.DataAnnotations;
 
-namespace SmartShift.Infrastructure.Data;
+namespace SmartShift.Domain.Data;
 
 public class ApplicationUser : IdentityUser
 {

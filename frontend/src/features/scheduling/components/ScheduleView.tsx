@@ -13,17 +13,6 @@ export const ScheduleView = () => {
   const navigate = useNavigate();
   const {logout,isAuthenticated} = useAuth();
 
-
- // useEffect(() => {
- //   const checkToken = async () => {
- //     const isValid = await authService.validateToken();
- //     if(!isValid) {
- //       localStorage.removeItem("token");
- //       navigate("/auth");
- //     }
- //   }
- //   checkToken();
- // }, [navigate]);
  useEffect(() => {
   if (!isAuthenticated) {
     navigate("/auth");
@@ -38,16 +27,8 @@ export const ScheduleView = () => {
   );
 
   const { employees, shifts, loading, error } = useScheduling(startDate, endDate);
-  
-
- // const handleLogout = () => {
- //   localStorage.removeItem("token");
- //   navigate("/auth"); // שים לב שהנתיב הזה צריך להתאים לנתיב דף ההתחברות שלך!
- // };
-
  
   if (error) return <div className="text-center mt-10 text-red-500">שגיאה: {error}</div>;
-
 
 
  if(loading) {

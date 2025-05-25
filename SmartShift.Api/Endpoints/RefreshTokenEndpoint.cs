@@ -42,7 +42,7 @@ public class RefreshTokenEndpoint : ICarterModule
             oldToken.ReplacedByToken = newRefreshToken.Token;
 
             // שמירה במסד
-            dbContext.RefreshTokens.Add(newRefreshToken);
+            //dbContext.RefreshTokens.Add(newRefreshToken);
             await dbContext.SaveChangesAsync();
 
             if (oldToken.User == null)

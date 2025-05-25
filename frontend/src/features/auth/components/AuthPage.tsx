@@ -43,8 +43,9 @@ export default function AuthPage() {
     setIsLoading(true);
     try {
       if (isLogin) {
-        const token = await authService.login(email, password);
-        localStorage.setItem("token", token);
+        const res = await authService.login(email, password);
+        localStorage.setItem("token", res.token);
+        localStorage.setItem("refreshToken", res.refreshToken);
         navigate("/schedule");
       } else {
         await authService.register(fullName, email, password);

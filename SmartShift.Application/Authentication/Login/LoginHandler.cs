@@ -35,7 +35,7 @@ public class LoginHandler : IRequestHandler<LoginCommand, LoginResult>
                 Message = "Invalid email or password."
             };
         }
-
+        
         // Generate real JWT token
         var token = await _tokenGenerator.GenerateTokenAsync(user);
         var refreshToken = _refreshTokenService.GenerateRefreshToken(user.Id, "127.0.0.1");

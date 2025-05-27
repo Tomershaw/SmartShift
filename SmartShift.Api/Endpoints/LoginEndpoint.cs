@@ -11,12 +11,15 @@ public class LoginEndpoint : ICarterModule
     {
         app.MapPost("/api/account/login", async (
             LoginRequest request,
+            HttpContext http,
             IMediator mediator) =>
         {
+            var ip = http.Connection.RemoteIpAddress?.ToString();
             var command = new LoginCommand
             {
                 Email = request.Email,
-                Password = request.Password
+                Password = request.Password,
+                IpAddress = ip ?? "unknown"
             };
 
             var result = await mediator.Send(command);

@@ -1,7 +1,11 @@
 using Carter;
+using MediatR;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SmartShift.Infrastructure.Authentication;
 using SmartShift.Infrastructure.Data;
+using System.Security.Cryptography;
+
 
 namespace SmartShift.Api.Endpoints;
 
@@ -10,54 +14,29 @@ public class RefreshTokenEndpoint : ICarterModule
     public void AddRoutes(IEndpointRouteBuilder app)
     {
         app.MapPost("/api/account/refresh-token", async (
-            RefreshTokenRequest tokenRequest,
+            [FromBody] RefreshTokenCommand command,
             HttpContext context,
-            ApplicationDbContext dbContext,
-            RefreshTokenService refreshTokenService,
-            IJwtTokenGenerator tokenGenerator) =>
+            ISender mediator,
+            ILogger<RefreshTokenEndpoint> logger) =>
         {
-            if (string.IsNullOrEmpty(tokenRequest.RefreshToken))
-            {
-                return Results.BadRequest(new { Message = "Missing refresh token" });
-            }
 
-            var oldToken = await dbContext.RefreshTokens
-                .Include(t => t.User)
-                .FirstOrDefaultAsync(t => t.Token == tokenRequest.RefreshToken);
 
-            if (oldToken == null || !oldToken.IsActive)
+            var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+            var result = await mediator.Send(command);
+            if (!result.Success)
             {
+                logger.LogWarning("❌ Failed to refresh token: {Message}", result.Message);
                 return Results.Unauthorized();
             }
 
-            // קבלת כתובת ה-IP האמיתית של המשתמש
-            var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            logger.LogInformation("✅ Token refreshed for user");
 
-            // ביטול הטוקן הישן
-            oldToken.Revoked = DateTime.UtcNow;
-            oldToken.RevokedByIp = ipAddress;
 
-            // יצירת טוקן חדש
-            var newRefreshToken = refreshTokenService.GenerateRefreshToken(oldToken.UserId, ipAddress);
-            oldToken.ReplacedByToken = newRefreshToken.Token;
-
-            // שמירה במסד
-            //dbContext.RefreshTokens.Add(newRefreshToken);
-            await dbContext.SaveChangesAsync();
-
-            if (oldToken.User == null)
-             {
-               return Results.Problem("Internal error: user not loaded.");
-             }
-
-            // הפקת JWT חדש
-            var newAccessToken = await tokenGenerator.GenerateTokenAsync(oldToken.User);
-
-            // תשובה
             return Results.Ok(new
             {
-                Token = newAccessToken,
-                RefreshToken = newRefreshToken.Token
+                Token = result.Token,
+                RefreshToken = result.RefreshToken
             });
         })
         .WithName("RefreshToken")

@@ -38,8 +38,8 @@ public class LoginHandler : IRequestHandler<LoginCommand, LoginResult>
         
         // Generate real JWT token
         var token = await _tokenGenerator.GenerateTokenAsync(user);
-        var refreshToken = _refreshTokenService.GenerateRefreshToken(user.Id, "127.0.0.1");
-       _dbContext.RefreshTokens.Add(refreshToken);
+        var refreshToken = _refreshTokenService.GenerateRefreshToken(user.Id, request.IpAddress);
+        _dbContext.RefreshTokens.Add(refreshToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
 

@@ -1,8 +1,8 @@
 using Carter;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.EntityFrameworkCore;
-using SmartShift.Infrastructure.Data;
 using System.Security.Claims;
+using MediatR;
+using SmartShift.Application.Authentication.Logout;
 
 namespace SmartShift.Api.Endpoints;
 
@@ -12,53 +12,41 @@ public class LogoutEndpoint : ICarterModule
     {
         app.MapPost("/api/account/logout", [Authorize] async (
             ClaimsPrincipal user,
-            ApplicationDbContext dbContext,
-            ILogger<LogoutEndpoint> logger) => // ✅ מוסיפים logger
+            HttpContext context,
+            ISender mediator,
+            ILogger<LogoutEndpoint> logger) =>
         {
+            logger.LogInformation("🚀 Logout endpoint reached");
+
+            var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(userId))
+            {
+                logger.LogWarning("❌ userId missing in token");
+                return Results.Unauthorized();
+            }
+
+            var command = new LogoutCommand
+            {
+                UserId = userId,
+                IpAddress = ipAddress
+            };
+
             try
             {
-                logger.LogInformation("🚀 Logout endpoint reached");
+                var result = await mediator.Send(command);
 
-                var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-                if (string.IsNullOrEmpty(userId))
+                if (!result.Success)
                 {
-                    logger.LogWarning("❌ userId missing in token");
-                    return Results.Unauthorized();
+                    return Results.Problem(result.Message);
                 }
 
-                logger.LogInformation("✅ Logout called by user {UserId}", userId);
-
-                logger.LogInformation("🚀 לפני הטעינה מהמסד");
-
-                 var tokens = await dbContext.RefreshTokens
-                   .Where(t => t.UserId == userId && t.Revoked == null && t.Expires > DateTime.UtcNow)
-                   .ToListAsync();
-
-                logger.LogInformation("✅ טוקנים נטענו ({Count})", tokens.Count);
-
-                foreach (var token in tokens)
-                {
-                    logger.LogInformation("🔁 מטפל בטוקן ID={Id}", token.Id);
-                    token.Revoked = DateTime.UtcNow;
-                    token.RevokedByIp = "logout-test";
-                }
-
-                logger.LogInformation("💾 לפני שמירה למסד");
-
-                await dbContext.SaveChangesAsync();
-
-                logger.LogInformation("✅ שמירה הצליחה");
-
-                return Results.Ok(new
-                {
-                    Message = $"✅ Logout successful. {tokens.Count} tokens revoked.",
-                    UserId = userId
-                });
+                return Results.Ok(result);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "❌ Logout failed");
+                logger.LogError(ex, "❌ Logout failed with exception");
                 return Results.Problem("Internal server error during logout.");
             }
         })

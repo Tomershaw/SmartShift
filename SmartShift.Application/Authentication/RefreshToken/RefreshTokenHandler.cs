@@ -28,9 +28,9 @@ public class RefreshTokenHandler : IRequestHandler<RefreshTokenCommand, RefreshT
     public async Task<RefreshTokenResult> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
     {
 
-        var oldToken = await _dbContext.RefreshTokens
+            var oldToken = await _dbContext.RefreshTokens
             .Include(t => t.User)
-            .FirstOrDefaultAsync(t => t.Token == request.RefreshToken);
+            .SingleOrDefaultAsync(t => t.Token == request.RefreshToken);
 
 
         if (oldToken == null || !oldToken.IsActive)
@@ -43,9 +43,10 @@ public class RefreshTokenHandler : IRequestHandler<RefreshTokenCommand, RefreshT
             };
         }
 
-        // δημτϊ δθεχο αξχεν μδερισ ηγω
+        // Χ”Χ—ΧΧ¤Χª Χ”ΧΧ•Χ§Χ Χ‘ΧΧ§Χ•Χ ΧΧ”Χ•Χ΅Χ™Χ£ Χ—Χ“Χ©
         var newTokenValue = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
-        oldToken.ReplacedByToken = newTokenValue;
+        oldToken.ReplacedByToken = oldToken.Token;
+        oldToken.Token = newTokenValue;
         oldToken.Expires = DateTime.UtcNow.AddDays(7);
         oldToken.Created = DateTime.UtcNow;
         oldToken.CreatedByIp = request.IpAddress;
@@ -60,13 +61,13 @@ public class RefreshTokenHandler : IRequestHandler<RefreshTokenCommand, RefreshT
 
         _logger.LogInformation("? Successfully refreshed token for user {UserId}", oldToken.UserId);
 
-
+            
         return new RefreshTokenResult
         {
             Success = true,
             Message = "Token refreshed successfully",
             Token = newAccessToken,
-            RefreshToken = oldToken.Token
+            RefreshToken = newTokenValue
         };
     }
 

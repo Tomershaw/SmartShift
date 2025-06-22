@@ -1,9 +1,10 @@
+using SmartShift.Domain.Data;
 using System;
 
 namespace SmartShift.Domain.Features.Employees;
 
-public class Employee
-{
+    public class Employee
+    {
     public Guid Id { get; private set; }
     public string?  FirstName { get; private set; }
     public string? LastName { get; private set; }
@@ -12,6 +13,9 @@ public class Employee
     public DateTime CreatedAt { get; private set; }
     public DateTime? UpdatedAt { get; private set; }
     public int PriorityRating { get; private set; }
+
+    public Guid? TenantId { get; set; }
+    public Tenant? Tenant { get; set; }
 
     public string Name => $"{FirstName} {LastName}";
 

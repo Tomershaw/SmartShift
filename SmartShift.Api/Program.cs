@@ -20,15 +20,11 @@ using SmartShift.Domain.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ? Swagger
 builder.Services.AddEndpointsApiExplorer();
-
 builder.Services.AddSwaggerGen(options =>
 {
-    options.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "SmartShift API",
-        Version = "v1"
-    });
+    options.SwaggerDoc("v1", new OpenApiInfo { Title = "SmartShift API", Version = "v1" });
 
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
@@ -45,19 +41,15 @@ builder.Services.AddSwaggerGen(options =>
         {
             new OpenApiSecurityScheme
             {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
+                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
             },
             Array.Empty<string>()
         }
     });
 });
 
+// ? Application & Infra
 builder.Services.AddApplication();
-
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -73,8 +65,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-builder.Services.AddCarter();
-
+// ? JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -91,7 +82,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)
             )
-            
         };
 
         options.Events = new JwtBearerEvents
@@ -99,17 +89,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             OnMessageReceived = context =>
             {
                 var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogInformation("\ud83d\udce2 Raw Token Received: {Token}", context.Token);
+                logger.LogInformation("?? Raw Token Received: {Token}", context.Token);
                 return Task.CompletedTask;
             },
             OnTokenValidated = context =>
             {
                 var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogInformation("\u2705 Token Successfully Validated");
+                logger.LogInformation("? Token Successfully Validated");
 
                 foreach (var claim in context.Principal!.Claims)
                 {
-                    logger.LogInformation("\ud83d\udce2 Claim Type: {Type}, Value: {Value}", claim.Type, claim.Value);
+                    logger.LogInformation("?? Claim Type: {Type}, Value: {Value}", claim.Type, claim.Value);
                 }
 
                 return Task.CompletedTask;
@@ -117,7 +107,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             OnAuthenticationFailed = context =>
             {
                 var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogError(context.Exception, "\u274c Authentication Failed");
+                logger.LogError(context.Exception, "? Authentication Failed");
                 return Task.CompletedTask;
             },
             OnChallenge = context =>
@@ -138,7 +128,24 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+// ? Carter, CORS, DI
+builder.Services.AddCarter();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173")
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
+});
+
+// ? Application Services
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
+builder.Services.AddScoped<IShiftRepository, ShiftRepository>();
+builder.Services.AddScoped<RefreshTokenService>();
 
 builder.Services.AddMediatR(cfg =>
 {
@@ -151,39 +158,25 @@ builder.Services.AddValidatorsFromAssembly(typeof(SmartShift.Application.Depende
 
 builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowFrontend", policy =>
-    {
-        policy.WithOrigins("http://localhost:5173")
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
-    });
-});
-
-builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
-builder.Services.AddScoped<IShiftRepository, ShiftRepository>();
-builder.Services.AddScoped<RefreshTokenService>();
-
 var app = builder.Build();
 
+// ? SEEDING (Tenant + Employees + Shifts + Roles)
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
-    await SeedData.SeedRolesAsync(services);
-    await SeedData.SeedEmployeesAsync(services.GetRequiredService<ApplicationDbContext>());
-    await SeedData.SeedShiftsAsync(services.GetRequiredService<ApplicationDbContext>());
-}
+    var context = services.GetRequiredService<ApplicationDbContext>();
 
-using (var scope = app.Services.CreateScope())
-{
-    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     context.Database.Migrate();
-    await SeedData.SeedEmployeesAsync(context);
-    await SeedData.SeedShiftsAsync(context);
+
+    await SeedData.SeedTenantAsync(context);
+    var tenant = await context.Tenants.FirstAsync(t => t.Name == "אריא");
+
+    await SeedData.SeedEmployeesAsync(context, tenant.Id);
+    await SeedData.SeedShiftsAsync(context, tenant.Id);
+    await SeedData.SeedRolesAsync(services);
 }
 
+// ? Pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -194,7 +187,7 @@ app.UseExceptionMiddleware();
 app.UseHttpsRedirection();
 app.UseRouting();
 app.UseCors("AllowFrontend");
-app.UseAuthentication(); 
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapCarter();
 app.Run();

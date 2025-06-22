@@ -207,6 +207,9 @@ namespace SmartShift.Infrastructure.Migrations
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("bit");
 
@@ -227,7 +230,24 @@ namespace SmartShift.Infrastructure.Migrations
                         .HasDatabaseName("UserNameIndex")
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
+                    b.HasIndex("TenantId");
+
                     b.ToTable("AspNetUsers", (string)null);
+                });
+
+            modelBuilder.Entity("SmartShift.Domain.Data.Tenant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Tenants");
                 });
 
             modelBuilder.Entity("SmartShift.Domain.Features.Employees.Employee", b =>
@@ -258,10 +278,15 @@ namespace SmartShift.Infrastructure.Migrations
                     b.Property<int>("PriorityRating")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
 
                     b.ToTable("Employees");
                 });
@@ -329,7 +354,12 @@ namespace SmartShift.Infrastructure.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
 
                     b.ToTable("Shifts");
                 });
@@ -385,6 +415,28 @@ namespace SmartShift.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SmartShift.Domain.Data.ApplicationUser", b =>
+                {
+                    b.HasOne("SmartShift.Domain.Data.Tenant", "Tenant")
+                        .WithMany("Users")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("SmartShift.Domain.Features.Employees.Employee", b =>
+                {
+                    b.HasOne("SmartShift.Domain.Data.Tenant", "Tenant")
+                        .WithMany("Employees")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+                });
+
             modelBuilder.Entity("SmartShift.Domain.Features.RefreshTokens.RefreshToken", b =>
                 {
                     b.HasOne("SmartShift.Domain.Data.ApplicationUser", "User")
@@ -394,6 +446,26 @@ namespace SmartShift.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SmartShift.Domain.Features.Scheduling.Shift", b =>
+                {
+                    b.HasOne("SmartShift.Domain.Data.Tenant", "Tenant")
+                        .WithMany("Shifts")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("SmartShift.Domain.Data.Tenant", b =>
+                {
+                    b.Navigation("Employees");
+
+                    b.Navigation("Shifts");
+
+                    b.Navigation("Users");
                 });
 #pragma warning restore 612, 618
         }

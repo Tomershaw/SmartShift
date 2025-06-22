@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using System;
+using System;
 using System.ComponentModel.DataAnnotations;
-
 namespace SmartShift.Domain.Data;
 
 public class ApplicationUser : IdentityUser
@@ -12,4 +12,9 @@ public class ApplicationUser : IdentityUser
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime? UpdatedAt { get; set; }
+
+
+        // 🟢 חדש:
+   public Guid? TenantId { get; set; }
+   public Tenant? Tenant { get; set; }
 }

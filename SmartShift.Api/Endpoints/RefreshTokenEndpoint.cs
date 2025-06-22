@@ -2,6 +2,7 @@ using Carter;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SmartShift.Application.Authentication.Refresh;
 using SmartShift.Infrastructure.Authentication;
 using SmartShift.Infrastructure.Data;
 using System.Security.Cryptography;

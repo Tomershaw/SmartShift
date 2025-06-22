@@ -1,3 +1,4 @@
+using SmartShift.Domain.Data;
 using System;
 
 namespace SmartShift.Domain.Features.Scheduling;
@@ -8,9 +9,11 @@ public class Shift
     public DateTime StartTime { get; private set; }
     public DateTime EndTime { get; private set; }
     public int RequiredPriorityRating { get; private set; }
-    public Guid? AssignedEmployeeId { get; private set; }
+    public Guid? AssignedEmployeeId { get; private set; }   
     public ShiftStatus Status { get; private set; }
 
+    public Guid? TenantId { get; set; }
+    public Tenant? Tenant { get; set; }
     private Shift() { } // For EF Core
 
     public Shift(DateTime startTime, DateTime endTime, int requiredPriorityRating)

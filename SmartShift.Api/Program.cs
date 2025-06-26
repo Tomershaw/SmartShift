@@ -17,6 +17,7 @@ using Microsoft.OpenApi.Models;
 using System.Security.Claims;
 using SmartShift.Api.Middleware;
 using SmartShift.Domain.Data;
+using SmartShift.Application.Features.UserManagement.CreateUser;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -130,6 +131,9 @@ builder.Services.AddAuthorization();
 
 // ? Carter, CORS, DI
 builder.Services.AddCarter();
+
+builder.Services.AddScoped<Carter.IValidatorLocator, Carter.DefaultValidatorLocator>();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -143,6 +147,7 @@ builder.Services.AddCors(options =>
 
 // ? Application Services
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+builder.Services.AddScoped<IUserRegistrationService, UserRegistrationService>();
 builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
 builder.Services.AddScoped<IShiftRepository, ShiftRepository>();
 builder.Services.AddScoped<RefreshTokenService>();
@@ -153,14 +158,18 @@ builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssembly(typeof(SmartShift.Application.DependencyInjection).Assembly);
 });
 
-builder.Services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
-builder.Services.AddValidatorsFromAssembly(typeof(SmartShift.Application.DependencyInjection).Assembly);
+
+
+builder.Services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly(), ServiceLifetime.Scoped);
+builder.Services.AddValidatorsFromAssembly(typeof(SmartShift.Application.DependencyInjection).Assembly, ServiceLifetime.Scoped);
+
+
 
 builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
 var app = builder.Build();
 
-// ? SEEDING (Tenant + Employees + Shifts + Roles)
+// ? SEEDING (Tenant + Employees + Shifts + Roles + Admin)
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -169,11 +178,12 @@ using (var scope = app.Services.CreateScope())
     context.Database.Migrate();
 
     await SeedData.SeedTenantAsync(context);
-    var tenant = await context.Tenants.FirstAsync(t => t.Name == "àøéà");
+    var tenant = await context.Tenants.FirstAsync(t => t.Name == "××¨×™×");
 
     await SeedData.SeedEmployeesAsync(context, tenant.Id);
     await SeedData.SeedShiftsAsync(context, tenant.Id);
     await SeedData.SeedRolesAsync(services);
+    await SeedData.SeedAdminUserAsync(services, tenant.Id); // ? ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½
 }
 
 // ? Pipeline

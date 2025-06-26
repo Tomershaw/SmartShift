@@ -36,6 +36,12 @@ public class JwtTokenGenerator : IJwtTokenGenerator
             new Claim(ClaimTypes.Name, user.FullName)
         };
 
+
+        // ✅ הוספת TenantId
+        if (user.TenantId.HasValue)
+        {
+            claims.Add(new Claim("tenantId", user.TenantId.Value.ToString()));
+        }
         // ✅ הוספת ה-Roles עם המפתח "roles" (לא ClaimTypes.Role)
         //   foreach (var role in roles)
         //    {

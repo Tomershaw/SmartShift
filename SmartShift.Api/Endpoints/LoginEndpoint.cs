@@ -14,7 +14,7 @@ public class LoginEndpoint : ICarterModule
             HttpContext http,
             IMediator mediator) =>
         {
-            var ip = http.Connection.RemoteIpAddress?.ToString();
+            var ip = http.Connection.RemoteIpAddress?.ToString();   
             var command = new LoginCommand
             {
                 Email = request.Email,

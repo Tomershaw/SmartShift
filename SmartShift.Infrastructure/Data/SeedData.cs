@@ -100,6 +100,44 @@ public static class SeedData
     }
 
 
+    public static async Task SeedAdminUserAsync(IServiceProvider serviceProvider, Guid tenantId)
+    {
+        var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+
+        var adminEmail = "simon1@example.com";
+        var adminUser = await userManager.FindByEmailAsync(adminEmail);
+
+        if (adminUser == null)
+        {
+            adminUser = new ApplicationUser
+            {
+                UserName = "simon1",
+                Email = adminEmail,
+                EmailConfirmed = true,
+                FullName = "Simon Shaw",
+                TenantId = tenantId
+            };
+
+            var result = await userManager.CreateAsync(adminUser, "Admin123!");
+            if (!result.Succeeded)
+            {
+                Console.WriteLine("❌ Failed to create admin user:");
+                foreach (var error in result.Errors)
+                    Console.WriteLine($"   {error.Description}");
+                return;
+            }
+        }
+
+        if (!await userManager.IsInRoleAsync(adminUser, "Admin"))
+        {
+            await userManager.AddToRoleAsync(adminUser, "Admin");
+        }
+
+        Console.WriteLine("✅ Admin user seeded successfully.");
+    }
+
+
     public static async Task SeedRolesAsync(IServiceProvider serviceProvider)
     {
         try

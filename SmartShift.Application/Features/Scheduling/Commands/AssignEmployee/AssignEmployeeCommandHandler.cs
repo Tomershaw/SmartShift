@@ -1,6 +1,6 @@
 using MediatR;
+using SmartShift.Application.Common.Interfaces;
 using SmartShift.Domain.Features.Scheduling;
-using SmartShift.Domain.Features.Employees;
 using SmartShift.Infrastructure.Features.Employees.Repositories;
 using SmartShift.Infrastructure.Features.Scheduling.Repositories;
 
@@ -10,24 +10,33 @@ public class AssignEmployeeCommandHandler : IRequestHandler<AssignEmployeeComman
 {
     private readonly IShiftRepository _shiftRepository;
     private readonly IEmployeeRepository _employeeRepository;
+    private readonly ICurrentUserService _currentUserService;
 
     public AssignEmployeeCommandHandler(
         IShiftRepository shiftRepository,
-        IEmployeeRepository employeeRepository)
+        IEmployeeRepository employeeRepository,
+        ICurrentUserService currentUserService)
     {
         _shiftRepository = shiftRepository;
         _employeeRepository = employeeRepository;
+        _currentUserService = currentUserService;
     }
 
     public async Task<ShiftDto> Handle(AssignEmployeeCommand request, CancellationToken cancellationToken)
     {
-        var shift = await _shiftRepository.GetByIdAsync(Guid.Parse(request.ShiftId));
+        var tenantId = _currentUserService.GetTenantId();
+
+        var shift = await _shiftRepository.GetByIdAsync(Guid.Parse(request.ShiftId), tenantId);
         if (shift == null)
             throw new KeyNotFoundException($"Shift with ID {request.ShiftId} not found");
 
-        var employee = await _employeeRepository.GetByIdAsync(Guid.Parse(request.EmployeeId));
+        if (shift.TenantId != tenantId)
+            throw new UnauthorizedAccessException("You are not allowed to modify this shift");
+        // אם בהמשך נרצה גם לבדוק shift.TenantId – זה המקום
+
+        var employee = await _employeeRepository.GetByIdAsync(Guid.Parse(request.EmployeeId), tenantId, cancellationToken);
         if (employee == null)
-            throw new KeyNotFoundException($"Employee with ID {request.EmployeeId} not found");
+            throw new UnauthorizedAccessException("Employee not found or does not belong to your tenant");
 
         shift.AssignEmployee(employee.Id);
         await _shiftRepository.UpdateAsync(shift);
@@ -39,4 +48,4 @@ public class AssignEmployeeCommandHandler : IRequestHandler<AssignEmployeeComman
             shift.AssignedEmployeeId?.ToString()
         );
     }
-} 
+}

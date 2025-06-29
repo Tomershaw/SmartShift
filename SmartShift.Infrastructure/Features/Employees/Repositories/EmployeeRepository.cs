@@ -13,10 +13,6 @@ public class EmployeeRepository : IEmployeeRepository
         _context = context;
     }
 
-    public async Task<Employee?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        return await _context.Employees.FindAsync(new object[] { id }, cancellationToken);
-    }
 
     public async Task<IEnumerable<Employee>> GetAllAsync(CancellationToken cancellationToken = default)
     {
@@ -37,13 +33,26 @@ public class EmployeeRepository : IEmployeeRepository
         return employee;
     }
 
-    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default)
     {
-        var employee = await GetByIdAsync(id, cancellationToken);
+        var employee = await GetByIdAsync(id, tenantId, cancellationToken);
         if (employee != null)
         {
             _context.Employees.Remove(employee);
             await _context.SaveChangesAsync(cancellationToken);
         }
     }
-} 
+
+    public async Task<IEnumerable<Employee>> GetAllAsync(Guid tenantId)
+    {
+        return await _context.Employees
+            .Where(e => e.TenantId == tenantId)
+            .ToListAsync();
+    }
+
+public async Task<Employee?> GetByIdAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default)
+{
+    return await _context.Employees
+        .FirstOrDefaultAsync(e => e.Id == id && e.TenantId == tenantId, cancellationToken);
+}
+}

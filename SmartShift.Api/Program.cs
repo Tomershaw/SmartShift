@@ -18,6 +18,8 @@ using System.Security.Claims;
 using SmartShift.Api.Middleware;
 using SmartShift.Domain.Data;
 using SmartShift.Application.Features.UserManagement.CreateUser;
+using SmartShift.Application.Common.Interfaces;
+using SmartShift.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -151,6 +153,8 @@ builder.Services.AddScoped<IUserRegistrationService, UserRegistrationService>();
 builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
 builder.Services.AddScoped<IShiftRepository, ShiftRepository>();
 builder.Services.AddScoped<RefreshTokenService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 builder.Services.AddMediatR(cfg =>
 {

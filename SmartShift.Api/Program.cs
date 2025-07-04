@@ -20,10 +20,11 @@ using SmartShift.Domain.Data;
 using SmartShift.Application.Features.UserManagement.CreateUser;
 using SmartShift.Application.Common.Interfaces;
 using SmartShift.Api.Services;
+using SmartShift.Application.Features.Scheduling.Commands.RegisterForShift; // ✅ חובה ל-MediatR
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ? Swagger
+// ✅ Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -51,8 +52,9 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-// ? Application & Infra
+// ✅ Application & Infra
 builder.Services.AddApplication();
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -68,7 +70,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// ? JWT Authentication
+// ✅ JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -131,9 +133,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
-// ? Carter, CORS, DI
+// ✅ Carter, CORS, DI
 builder.Services.AddCarter();
-
 builder.Services.AddScoped<Carter.IValidatorLocator, Carter.DefaultValidatorLocator>();
 
 builder.Services.AddCors(options =>
@@ -147,33 +148,32 @@ builder.Services.AddCors(options =>
     });
 });
 
-// ? Application Services
+// ✅ Application Services
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 builder.Services.AddScoped<IUserRegistrationService, UserRegistrationService>();
-builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
+builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();  
 builder.Services.AddScoped<IShiftRepository, ShiftRepository>();
 builder.Services.AddScoped<RefreshTokenService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
+// ✅ MediatR - כולל רישום נכון
 builder.Services.AddMediatR(cfg =>
 {
-    cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly());
     cfg.RegisterServicesFromAssembly(typeof(SmartShift.Application.DependencyInjection).Assembly);
+    cfg.RegisterServicesFromAssembly(typeof(RegisterForShiftHandler).Assembly); // ✅ זו השורה החשובה
 });
 
-
-
+// ✅ FluentValidation
 builder.Services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly(), ServiceLifetime.Scoped);
 builder.Services.AddValidatorsFromAssembly(typeof(SmartShift.Application.DependencyInjection).Assembly, ServiceLifetime.Scoped);
 
-
-
+// ✅ Pipeline Behaviors
 builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
 var app = builder.Build();
 
-// ? SEEDING (Tenant + Employees + Shifts + Roles + Admin)
+// ✅ SEEDING (Tenant + Employees + Shifts + Roles + Admin)
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -187,10 +187,10 @@ using (var scope = app.Services.CreateScope())
     await SeedData.SeedEmployeesAsync(context, tenant.Id);
     await SeedData.SeedShiftsAsync(context, tenant.Id);
     await SeedData.SeedRolesAsync(services);
-    await SeedData.SeedAdminUserAsync(services, tenant.Id); // ? �� ���� �����
+    await SeedData.SeedAdminUserAsync(services, tenant.Id);
 }
 
-// ? Pipeline
+// ✅ Pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -204,4 +204,5 @@ app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapCarter();
+
 app.Run();

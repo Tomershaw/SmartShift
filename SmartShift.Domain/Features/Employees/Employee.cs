@@ -3,10 +3,13 @@ using System;
 
 namespace SmartShift.Domain.Features.Employees;
 
-    public class Employee
-    {
+public class Employee
+{
     public Guid Id { get; private set; }
-    public string?  FirstName { get; private set; }
+    public string UserId { get; set; } = string.Empty;
+    public ApplicationUser? User { get; set; } // ניווט ל-User
+
+    public string? FirstName { get; private set; }
     public string? LastName { get; private set; }
     public string? Email { get; private set; }
     public string? PhoneNumber { get; private set; }
@@ -49,3 +52,5 @@ namespace SmartShift.Domain.Features.Employees;
         UpdatedAt = DateTime.UtcNow;
     }
 }
+
+

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SmartShift.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using SmartShift.Infrastructure.Data;
 namespace SmartShift.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250630113754_AddShiftRegistrations")]
+    partial class AddShiftRegistrations
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -278,22 +281,15 @@ namespace SmartShift.Infrastructure.Migrations
                     b.Property<int>("PriorityRating")
                         .HasColumnType("int");
 
-                    b.Property<Guid?>("TenantId")
+                    b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("UserId")
-                        .HasColumnType("nvarchar(450)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("TenantId");
-
-                    b.HasIndex("UserId")
-                        .IsUnique()
-                        .HasFilter("[UserId] IS NOT NULL");
 
                     b.ToTable("Employees");
                 });
@@ -480,15 +476,11 @@ namespace SmartShift.Infrastructure.Migrations
                 {
                     b.HasOne("SmartShift.Domain.Data.Tenant", "Tenant")
                         .WithMany("Employees")
-                        .HasForeignKey("TenantId");
-
-                    b.HasOne("SmartShift.Domain.Data.ApplicationUser", "User")
-                        .WithOne()
-                        .HasForeignKey("SmartShift.Domain.Features.Employees.Employee", "UserId");
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Tenant");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("SmartShift.Domain.Features.RefreshTokens.RefreshToken", b =>

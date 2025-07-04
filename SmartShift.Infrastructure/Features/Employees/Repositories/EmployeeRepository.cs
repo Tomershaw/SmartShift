@@ -51,6 +51,7 @@ public class EmployeeRepository : IEmployeeRepository
     }
 
 public async Task<Employee?> GetByIdAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default)
+
 {
     return await _context.Employees
         .FirstOrDefaultAsync(e => e.Id == id && e.TenantId == tenantId, cancellationToken);

@@ -14,20 +14,19 @@ namespace SmartShift.Api.Services
 
         public string GetUserId()
         {
-            return _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier)
-                ?? throw new UnauthorizedAccessException("User ID not found in token.");
+            return _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? throw new UnauthorizedAccessException("User ID not found.");
         }
+
 
         public Guid GetTenantId()
         {
-            var tenantIdString = _httpContextAccessor.HttpContext?.User?.FindFirst("tenantId")?.Value;
+            var tenantIdStr = _httpContextAccessor.HttpContext?.User?.FindFirst("tenantId")?.Value;
 
-            if (string.IsNullOrEmpty(tenantIdString))
-                throw new UnauthorizedAccessException("Tenant ID not found in token.");
+            if (!Guid.TryParse(tenantIdStr, out var tenantId))
+                throw new UnauthorizedAccessException("Tenant ID not found or invalid.");
 
-            return Guid.TryParse(tenantIdString, out var tenantId)
-                ? tenantId
-                : throw new UnauthorizedAccessException("Tenant ID format is invalid.");
+            return tenantId;
         }
     }
 }

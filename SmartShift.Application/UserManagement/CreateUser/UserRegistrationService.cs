@@ -71,7 +71,6 @@ public class UserRegistrationService : IUserRegistrationService
             var nameParts = request.FullName.Split(' ');
             var firstName = nameParts[0];
             var lastName = nameParts.Length > 1 ? string.Join(" ", nameParts.Skip(1)) : "";
-
             var employee = new Employee(
                 firstName: firstName,
                 lastName: lastName,
@@ -80,7 +79,8 @@ public class UserRegistrationService : IUserRegistrationService
                 priorityRating: 1
             )
             {
-                TenantId = request.TenantId
+                TenantId = request.TenantId,
+                UserId = newUser.Id  // add this one UserId to link the employee with the user
             };
 
             _dbContext.Employees.Add(employee);

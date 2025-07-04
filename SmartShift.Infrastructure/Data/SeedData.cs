@@ -100,7 +100,7 @@ public static class SeedData
     }
 
 
-    public static async Task SeedAdminUserAsync(IServiceProvider serviceProvider, Guid tenantId)
+    public static async Task SeedAdminUserAsync(IServiceProvider serviceProvider, Guid  tenantId)
     {
         var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();

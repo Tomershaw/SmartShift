@@ -4,4 +4,4 @@ public interface ICurrentUserService
 {
     string GetUserId();
     Guid GetTenantId();
-}
+}   

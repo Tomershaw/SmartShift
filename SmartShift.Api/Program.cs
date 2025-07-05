@@ -20,7 +20,8 @@ using SmartShift.Domain.Data;
 using SmartShift.Application.Features.UserManagement.CreateUser;
 using SmartShift.Application.Common.Interfaces;
 using SmartShift.Api.Services;
-using SmartShift.Application.Features.Scheduling.Commands.RegisterForShift; // ✅ חובה ל-MediatR
+using SmartShift.Application.Features.Scheduling.Commands.RegisterForShift;
+using SmartShift.Domain.Services; // ✅ חובה ל-MediatR
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -156,6 +157,7 @@ builder.Services.AddScoped<IShiftRepository, ShiftRepository>();
 builder.Services.AddScoped<RefreshTokenService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<EmployeeShiftMatchingService>(); // רישום השירות החדש
 
 // ✅ MediatR - כולל רישום נכון
 builder.Services.AddMediatR(cfg =>

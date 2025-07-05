@@ -28,10 +28,10 @@ namespace SmartShift.Infrastructure.Features.Scheduling.Repositories
                 .FirstOrDefaultAsync(s => s.Id == id && s.TenantId == tenantId, cancellationToken);
         }
 
-        public async Task<IEnumerable<Shift>> GetShiftsInDateRangeAsync(DateTime startDate, DateTime endDate, Guid tenantId, CancellationToken cancellationToken = default)
+        public async Task<IEnumerable<Shift>> GetShiftsInDateRangeAsync(DateTime startDate,Guid tenantId, CancellationToken cancellationToken = default)
         {
             return await _context.Shifts
-                .Where(s => s.TenantId == tenantId && s.StartTime >= startDate && s.EndTime <= endDate)
+                .Where(s => s.TenantId == tenantId && s.StartTime >= startDate )
                 .ToListAsync(cancellationToken);
         }
 

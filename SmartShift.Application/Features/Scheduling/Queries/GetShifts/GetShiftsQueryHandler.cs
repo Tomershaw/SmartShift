@@ -24,12 +24,11 @@ public class GetShiftsQueryHandler : IRequestHandler<GetShiftsQuery, IEnumerable
         var startDate = DateTime.Parse(request.StartDate);
         var endDate = DateTime.Parse(request.EndDate);
 
-        var shifts = await _shiftRepository.GetShiftsInDateRangeAsync(startDate, endDate, tenantId, cancellationToken);
+        var shifts = await _shiftRepository.GetShiftsInDateRangeAsync(startDate, tenantId, cancellationToken);
 
         return shifts.Select(s => new ShiftDto(
             s.Id.ToString(),
             s.StartTime,
-            s.EndTime,
             s.AssignedEmployeeId?.ToString()
         ));
     }

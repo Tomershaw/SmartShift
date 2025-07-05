@@ -29,7 +29,7 @@
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.StartTime).IsRequired();
-                entity.Property(e => e.EndTime).IsRequired();
+                
             });
 
             modelBuilder.Entity<Employee>(entity =>
@@ -74,32 +74,31 @@
                 .HasForeignKey(s => s.TenantId)
                 .IsRequired();
 
-       
-            modelBuilder.Entity<ShiftRegistration>(entity =>
-            {
-                entity.HasKey(sr => sr.Id);
 
+        modelBuilder.Entity<ShiftRegistration>(entity =>
+        {
+            entity.HasKey(sr => sr.Id);
 
-                entity.HasOne(sr => sr.Shift)
-                      .WithMany()
-                      .HasForeignKey(sr => sr.ShiftId)
-                      .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(sr => sr.Shift)
+                  .WithMany(s => s.ShiftRegistrations)
+                  .HasForeignKey(sr => sr.ShiftId)
+                  .OnDelete(DeleteBehavior.NoAction);
 
-                entity.HasOne(sr => sr.Employee)
-                      .WithMany()
-                      .HasForeignKey(sr => sr.EmployeeId)
-                      .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(sr => sr.Employee)
+                  .WithMany(e => e.ShiftRegistrations)
+                  .HasForeignKey(sr => sr.EmployeeId)
+                  .OnDelete(DeleteBehavior.NoAction);
 
-                entity.HasOne(sr => sr.Tenant)
-                      .WithMany()
-                      .HasForeignKey(sr => sr.TenantId)
-                      .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(sr => sr.Tenant)
+                  .WithMany()
+                  .HasForeignKey(sr => sr.TenantId)
+                  .OnDelete(DeleteBehavior.NoAction);
 
-                // אינדקס ייחודי - עובד יכול להירשם פעם אחת למשמרת
-                entity.HasIndex(sr => new { sr.ShiftId, sr.EmployeeId })
-                      .IsUnique()
-                      .HasDatabaseName("IX_ShiftRegistration_ShiftId_EmployeeId");
-            });
-        }
+            // אינדקס ייחודי - עובד יכול להירשם פעם אחת למשמרת
+            entity.HasIndex(sr => new { sr.ShiftId, sr.EmployeeId })
+                  .IsUnique()
+                  .HasDatabaseName("IX_ShiftRegistration_ShiftId_EmployeeId");
+        });
+    }
     }
 

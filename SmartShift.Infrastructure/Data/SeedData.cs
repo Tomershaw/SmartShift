@@ -42,9 +42,18 @@ public static class SeedData
 
             var employees = new List<Employee>
             {
-                new Employee("John", "Doe", "john.doe@smartshift.com", "555-0101", 3) { TenantId = tenantId },
-                new Employee("Jane", "Smith", "jane.smith@smartshift.com", "555-0102", 2) { TenantId = tenantId },
-                new Employee("Michael", "Johnson", "michael.johnson@smartshift.com", "555-0103", 1) { TenantId = tenantId }
+                new Employee("John", "Doe", "john.doe@smartshift.com", "555-0101", 3)
+                {
+                    TenantId = tenantId
+                },
+                new Employee("Jane", "Smith", "jane.smith@smartshift.com", "555-0102", 2)
+                {
+                    TenantId = tenantId
+                },
+                new Employee("Michael", "Johnson", "michael.johnson@smartshift.com", "555-0103", 1)
+                {
+                    TenantId = tenantId
+                }
             };
 
             await context.Employees.AddRangeAsync(employees);
@@ -68,25 +77,46 @@ public static class SeedData
             var employees = await context.Employees.ToListAsync();
 
             var shifts = new List<Shift>
-        {
-            new Shift(DateTime.UtcNow.AddDays(1), DateTime.UtcNow.AddDays(1).AddHours(8), 3)
             {
-                TenantId = tenantId
-            },
-            new Shift(DateTime.UtcNow.AddDays(2), DateTime.UtcNow.AddDays(2).AddHours(8), 2)
-            {
-                TenantId = tenantId
-            },
-            new Shift(DateTime.UtcNow.AddDays(3), DateTime.UtcNow.AddDays(3).AddHours(8), 1)
-            {
-                TenantId = tenantId
-            }
-        };
+                new Shift(
+                    startTime: DateTime.UtcNow.AddDays(1),
+                    requiredEmployeeCount: 3,
+                    minimumEmployeeCount: 2,
+                    skillLevelRequired: 2,
+                    description: "Morning shift - warehouse"
+                )
+                {
+                    TenantId = tenantId
+                },
+                new Shift(
+                    startTime: DateTime.UtcNow.AddDays(2),
+                    requiredEmployeeCount: 2,
+                    minimumEmployeeCount: 1,
+                    skillLevelRequired: 3,
+                    description: "Evening shift - packaging"
+                )
+                {
+                    TenantId = tenantId
+                },
+                new Shift(
+                    startTime: DateTime.UtcNow.AddDays(3),
+                    requiredEmployeeCount: 1,
+                    minimumEmployeeCount: 1,
+                    skillLevelRequired: 1,
+                    description: "Night shift - support"
+                )
+                {
+                    TenantId = tenantId
+                }
+            };
 
-            // שיבוץ עובדים (אופציונלי אם אתה רוצה להדגים)
-            shifts[0].AssignEmployee(employees[0].Id);
-            shifts[1].AssignEmployee(employees[1].Id);
-            shifts[2].AssignEmployee(employees[2].Id);
+            // שיבוץ עובדים (אופציונלי)
+            if (employees.Count >= 3)
+            {
+                shifts[0].AssignEmployee(employees[0].Id);
+                shifts[1].AssignEmployee(employees[1].Id);
+                shifts[2].AssignEmployee(employees[2].Id);
+            }
 
             await context.Shifts.AddRangeAsync(shifts);
             await context.SaveChangesAsync();
@@ -99,44 +129,49 @@ public static class SeedData
         }
     }
 
-
-    public static async Task SeedAdminUserAsync(IServiceProvider serviceProvider, Guid  tenantId)
+    public static async Task SeedAdminUserAsync(IServiceProvider serviceProvider, Guid tenantId)
     {
-        var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-        var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-
-        var adminEmail = "simon1@example.com";
-        var adminUser = await userManager.FindByEmailAsync(adminEmail);
-
-        if (adminUser == null)
+        try
         {
-            adminUser = new ApplicationUser
-            {
-                UserName = "simon1",
-                Email = adminEmail,
-                EmailConfirmed = true,
-                FullName = "Simon Shaw",
-                TenantId = tenantId
-            };
+            var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
-            var result = await userManager.CreateAsync(adminUser, "Admin123!");
-            if (!result.Succeeded)
+            var adminEmail = "simon1@example.com";
+            var adminUser = await userManager.FindByEmailAsync(adminEmail);
+
+            if (adminUser == null)
             {
-                Console.WriteLine("❌ Failed to create admin user:");
-                foreach (var error in result.Errors)
-                    Console.WriteLine($"   {error.Description}");
-                return;
+                adminUser = new ApplicationUser
+                {
+                    UserName = "simon1",
+                    Email = adminEmail,
+                    EmailConfirmed = true,
+                    FullName = "Simon Shaw",
+                    TenantId = tenantId
+                };
+
+                var result = await userManager.CreateAsync(adminUser, "Admin123!");
+                if (!result.Succeeded)
+                {
+                    Console.WriteLine("❌ Failed to create admin user:");
+                    foreach (var error in result.Errors)
+                        Console.WriteLine($"   {error.Description}");
+                    return;
+                }
             }
-        }
 
-        if (!await userManager.IsInRoleAsync(adminUser, "Admin"))
+            if (!await userManager.IsInRoleAsync(adminUser, "Admin"))
+            {
+                await userManager.AddToRoleAsync(adminUser, "Admin");
+            }
+
+            Console.WriteLine("✅ Admin user seeded successfully.");
+        }
+        catch (Exception ex)
         {
-            await userManager.AddToRoleAsync(adminUser, "Admin");
+            Console.WriteLine($"❌ Error seeding admin user: {ex.Message}");
         }
-
-        Console.WriteLine("✅ Admin user seeded successfully.");
     }
-
 
     public static async Task SeedRolesAsync(IServiceProvider serviceProvider)
     {

@@ -74,7 +74,7 @@ public static class SeedData
             if (await context.Shifts.AnyAsync())
                 return;
 
-            var employees = await context.Employees.ToListAsync();
+            var employees = await context.Employees.ToListAsync();  
 
             var shifts = new List<Shift>
             {

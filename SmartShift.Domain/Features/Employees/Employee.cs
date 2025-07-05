@@ -29,7 +29,6 @@ public class Employee
 
     // תוספות חדשות
     public int SkillLevel { get; private set; } // רמת מיומנות
-    public List<string> WorkTypes { get; private set; } = new List<string>(); // סוגי עבודה
     public int MaxShiftsPerWeek { get; private set; } // מספר משמרות מקסימלי בשבוע
     public string AdminNotes { get; private set; } = string.Empty; // הערות על העובד
     public string EmployeeNotes { get; private set; } = string.Empty;
@@ -37,7 +36,9 @@ public class Employee
     // EF Core requires a parameterless constructor
     private Employee() { }
 
-    public Employee(string firstName, string lastName, string email, string phoneNumber, int priorityRating = 0, int skillLevel = 1, List<string>? workTypes = null, int maxShiftsPerWeek = 0, string notes = "")
+    public Employee(string firstName, string lastName, string email, string phoneNumber,
+        int priorityRating = 0, int skillLevel = 1,
+        int maxShiftsPerWeek = 0, string adminNotes = "", string employeeNotes = "")
     {
         Id = Guid.NewGuid();
         FirstName = !string.IsNullOrWhiteSpace(firstName) ? firstName : throw new ArgumentException("First name is required.");
@@ -49,13 +50,12 @@ public class Employee
 
         // תוספות חדשות
         SkillLevel = skillLevel;
-        WorkTypes = workTypes ?? new List<string>();
         MaxShiftsPerWeek = maxShiftsPerWeek;
-        Notes = notes,
-                
     }
 
-    public void Update(string firstName, string lastName, string email, string phoneNumber, int priorityRating, int skillLevel, List<string> workTypes, int maxShiftsPerWeek, string AdminNotes)
+    private void Update(string firstName, string lastName, string email, string phoneNumber,
+        int priorityRating, int skillLevel, 
+        int maxShiftsPerWeek)
     {
         FirstName = !string.IsNullOrWhiteSpace(firstName) ? firstName : throw new ArgumentException("First name is required.");
         LastName = !string.IsNullOrWhiteSpace(lastName) ? lastName : throw new ArgumentException("Last name is required.");
@@ -66,9 +66,22 @@ public class Employee
 
         // עדכון תוספות חדשות
         SkillLevel = skillLevel;
-        WorkTypes = workTypes ?? new List<string>();
         MaxShiftsPerWeek = maxShiftsPerWeek;
-        this.AdminNotes = AdminNotes;
+
+    }
+    public void AdminUpdate(string firstName, string lastName, string email, string phoneNumber,
+                            int priorityRating, int skillLevel, 
+                            int maxShiftsPerWeek, string adminNotes)
+    {
+        Update(firstName, lastName, email, phoneNumber, priorityRating, skillLevel,  maxShiftsPerWeek);
+        AdminNotes = adminNotes;
+    }
+    public void EployeeUpdate(string firstName, string lastName, string email, string phoneNumber,
+                            int priorityRating, int skillLevel, 
+                            int maxShiftsPerWeek, string employeeNotes)
+    {
+        Update(firstName, lastName, email, phoneNumber, priorityRating, skillLevel,  maxShiftsPerWeek);
+        EmployeeNotes = employeeNotes;
     }
 
     public void UpdatePriorityRating(int newRating)
@@ -92,17 +105,8 @@ public class Employee
 
         MaxShiftsPerWeek = newMaxShifts;
     }
-
-    public void AddWorkType(string workType)
-    {
-        if (string.IsNullOrWhiteSpace(workType))
-            throw new ArgumentException("Work type cannot be null or empty");
-
-        WorkTypes.Add(workType);
-    }
-
     public void UpdateNotes(string newNotes)
     {
-        Notes = newNotes;
+        AdminNotes = newNotes;
     }
 }

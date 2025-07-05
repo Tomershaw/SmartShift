@@ -31,7 +31,8 @@ public class Employee
     public int SkillLevel { get; private set; } // רמת מיומנות
     public List<string> WorkTypes { get; private set; } = new List<string>(); // סוגי עבודה
     public int MaxShiftsPerWeek { get; private set; } // מספר משמרות מקסימלי בשבוע
-    public string Notes { get; private set; } = string.Empty; // הערות על העובד
+    public string AdminNotes { get; private set; } = string.Empty; // הערות על העובד
+    public string EmployeeNotes { get; private set; } = string.Empty;
 
     // EF Core requires a parameterless constructor
     private Employee() { }
@@ -50,10 +51,11 @@ public class Employee
         SkillLevel = skillLevel;
         WorkTypes = workTypes ?? new List<string>();
         MaxShiftsPerWeek = maxShiftsPerWeek;
-        Notes = notes;
+        Notes = notes,
+                
     }
 
-    public void Update(string firstName, string lastName, string email, string phoneNumber, int priorityRating, int skillLevel, List<string> workTypes, int maxShiftsPerWeek, string notes)
+    public void Update(string firstName, string lastName, string email, string phoneNumber, int priorityRating, int skillLevel, List<string> workTypes, int maxShiftsPerWeek, string AdminNotes)
     {
         FirstName = !string.IsNullOrWhiteSpace(firstName) ? firstName : throw new ArgumentException("First name is required.");
         LastName = !string.IsNullOrWhiteSpace(lastName) ? lastName : throw new ArgumentException("Last name is required.");
@@ -66,7 +68,7 @@ public class Employee
         SkillLevel = skillLevel;
         WorkTypes = workTypes ?? new List<string>();
         MaxShiftsPerWeek = maxShiftsPerWeek;
-        Notes = notes;
+        this.AdminNotes = AdminNotes;
     }
 
     public void UpdatePriorityRating(int newRating)

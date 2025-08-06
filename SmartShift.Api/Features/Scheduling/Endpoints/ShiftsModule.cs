@@ -1,7 +1,7 @@
 using Carter;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using SmartShift.Application.Features.Scheduling.Queries.GetShifts;
+using SmartShift.Application.Features.Scheduling.GetShifts;
 
 namespace SmartShift.Api.Features.Scheduling.Endpoints;
 

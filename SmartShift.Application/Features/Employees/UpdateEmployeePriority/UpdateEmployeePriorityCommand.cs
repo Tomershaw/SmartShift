@@ -1,6 +1,6 @@
 using MediatR;
 
-namespace SmartShift.Application.Features.Employees.Commands.UpdateEmployeePriority;
+namespace SmartShift.Application.Features.Employees.UpdateEmployeePriority;
 
 public record UpdateEmployeePriorityCommand(string EmployeeId, int PriorityRating) : IRequest<EmployeeDto>;
 

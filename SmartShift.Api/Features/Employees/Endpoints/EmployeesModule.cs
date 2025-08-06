@@ -3,8 +3,8 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
-using SmartShift.Application.Features.Employees.Commands.UpdateEmployeePriority;
-using SmartShift.Application.Features.Employees.Queries.GetEmployees;
+using SmartShift.Application.Features.Employees.UpdateEmployeePriority;
+using SmartShift.Application.Features.Employees.GetEmployees;
 
 namespace SmartShift.Api.Features.Employees.Endpoints;
 

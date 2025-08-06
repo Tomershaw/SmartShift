@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SmartShift.Domain.Features.Employees;
 using SmartShift.Infrastructure.Data;
 
-namespace SmartShift.Infrastructure.Features.Employees.Repositories;
+namespace SmartShift.Infrastructure.Repositories;
 
 public class EmployeeRepository : IEmployeeRepository
 {
@@ -12,7 +12,6 @@ public class EmployeeRepository : IEmployeeRepository
     {
         _context = context;
     }
-
 
     public async Task<IEnumerable<Employee>> GetAllAsync(CancellationToken cancellationToken = default)
     {
@@ -50,10 +49,9 @@ public class EmployeeRepository : IEmployeeRepository
             .ToListAsync();
     }
 
-public async Task<Employee?> GetByIdAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default)
-
-{
-    return await _context.Employees
-        .FirstOrDefaultAsync(e => e.Id == id && e.TenantId == tenantId, cancellationToken);
-}
-}
+    public async Task<Employee?> GetByIdAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Employees
+            .FirstOrDefaultAsync(e => e.Id == id && e.TenantId == tenantId, cancellationToken);
+    }
+} 

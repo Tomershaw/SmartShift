@@ -9,8 +9,7 @@ using SmartShift.Application;
 using SmartShift.Application.Common.Behaviors;
 using SmartShift.Infrastructure.Authentication;
 using SmartShift.Infrastructure.Data;
-using SmartShift.Infrastructure.Features.Employees.Repositories;
-using SmartShift.Infrastructure.Features.Scheduling.Repositories;
+using SmartShift.Infrastructure.Repositories;
 using System.Reflection;
 using System.Text;
 using Microsoft.OpenApi.Models;
@@ -20,7 +19,7 @@ using SmartShift.Domain.Data;
 using SmartShift.Application.Features.UserManagement.CreateUser;
 using SmartShift.Application.Common.Interfaces;
 using SmartShift.Api.Services;
-using SmartShift.Application.Features.Scheduling.Commands.RegisterForShift;
+using SmartShift.Application.Features.Scheduling.RegisterForShift;
 using SmartShift.Domain.Services; // ✅ חובה ל-MediatR
 
 var builder = WebApplication.CreateBuilder(args);
@@ -163,7 +162,7 @@ builder.Services.AddScoped<EmployeeShiftMatchingService>(); // רישום השי
 builder.Services.AddMediatR(cfg =>
 {
     cfg.RegisterServicesFromAssembly(typeof(SmartShift.Application.DependencyInjection).Assembly);
-    cfg.RegisterServicesFromAssembly(typeof(RegisterForShiftHandler).Assembly); // ✅ זו השורה החשובה
+    cfg.RegisterServicesFromAssembly(typeof(RegisterForShiftCommandHandler).Assembly); // ✅ זו השורה החשובה
 });
 
 // ✅ FluentValidation

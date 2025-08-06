@@ -2,7 +2,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using SmartShift.Application.Common.Interfaces;
-using SmartShift.Application.Features.Scheduling.Commands.RegisterForShift;
+using SmartShift.Application.Features.Scheduling.RegisterForShift;
 
 namespace SmartShift.Api.Features.Scheduling.Endpoints
 {

@@ -1,6 +1,6 @@
 using MediatR;
 
-namespace SmartShift.Application.Features.Employees.Queries.GetEmployees;
+namespace SmartShift.Application.Features.Employees.GetEmployees;
 
 public record GetEmployeesQuery : IRequest<IEnumerable<EmployeeDto>>;
  

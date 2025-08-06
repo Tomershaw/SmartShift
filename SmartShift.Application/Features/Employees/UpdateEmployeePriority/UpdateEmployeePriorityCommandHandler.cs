@@ -1,7 +1,9 @@
 using MediatR;
 using SmartShift.Application.Common.Interfaces;
-using SmartShift.Application.Features.Employees.Commands.UpdateEmployeePriority;
-using SmartShift.Infrastructure.Features.Employees.Repositories;
+using SmartShift.Application.Features.Employees.UpdateEmployeePriority;
+using SmartShift.Infrastructure.Repositories;
+
+namespace SmartShift.Application.Features.Employees.UpdateEmployeePriority;
 
 public class UpdateEmployeePriorityCommandHandler : IRequestHandler<UpdateEmployeePriorityCommand, EmployeeDto>
 {
@@ -40,4 +42,4 @@ public class UpdateEmployeePriorityCommandHandler : IRequestHandler<UpdateEmploy
             employee.PriorityRating
         );
     }
-}
+} 

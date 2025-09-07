@@ -10,6 +10,8 @@ public class Employee
 {
     public Guid Id { get; private set; }
     public string UserId { get; set; } = string.Empty;
+
+    public string Gender { get; set; }
     public ApplicationUser? User { get; set; } // ניווט ל-User
 
     public string? FirstName { get; private set; }
@@ -24,7 +26,7 @@ public class Employee
     public Tenant? Tenant { get; set; }
 
     public ICollection<ShiftRegistration> ShiftRegistrations { get; set; } = new List<ShiftRegistration>();
-    
+
     public string Name => $"{FirstName} {LastName}";
 
     // תוספות חדשות
@@ -38,7 +40,8 @@ public class Employee
 
     public Employee(string firstName, string lastName, string email, string phoneNumber,
         int priorityRating = 0, int skillLevel = 1,
-        int maxShiftsPerWeek = 0, string adminNotes = "", string employeeNotes = "")
+        int maxShiftsPerWeek = 0, EmployeeShiftAvailability shiftAvailability = EmployeeShiftAvailability.Regular,
+        string adminNotes = "", string employeeNotes = "")
     {
         Id = Guid.NewGuid();
         FirstName = !string.IsNullOrWhiteSpace(firstName) ? firstName : throw new ArgumentException("First name is required.");
@@ -51,10 +54,11 @@ public class Employee
         // תוספות חדשות
         SkillLevel = skillLevel;
         MaxShiftsPerWeek = maxShiftsPerWeek;
+
     }
 
     private void Update(string firstName, string lastName, string email, string phoneNumber,
-        int priorityRating, int skillLevel, 
+        int priorityRating, int skillLevel,
         int maxShiftsPerWeek)
     {
         FirstName = !string.IsNullOrWhiteSpace(firstName) ? firstName : throw new ArgumentException("First name is required.");
@@ -67,20 +71,21 @@ public class Employee
         // עדכון תוספות חדשות
         SkillLevel = skillLevel;
         MaxShiftsPerWeek = maxShiftsPerWeek;
-
     }
+
     public void AdminUpdate(string firstName, string lastName, string email, string phoneNumber,
-                            int priorityRating, int skillLevel, 
+                            int priorityRating, int skillLevel,
                             int maxShiftsPerWeek, string adminNotes)
     {
-        Update(firstName, lastName, email, phoneNumber, priorityRating, skillLevel,  maxShiftsPerWeek);
+        Update(firstName, lastName, email, phoneNumber, priorityRating, skillLevel, maxShiftsPerWeek);
         AdminNotes = adminNotes;
     }
+
     public void EployeeUpdate(string firstName, string lastName, string email, string phoneNumber,
-                            int priorityRating, int skillLevel, 
+                            int priorityRating, int skillLevel,
                             int maxShiftsPerWeek, string employeeNotes)
     {
-        Update(firstName, lastName, email, phoneNumber, priorityRating, skillLevel,  maxShiftsPerWeek);
+        Update(firstName, lastName, email, phoneNumber, priorityRating, skillLevel, maxShiftsPerWeek);
         EmployeeNotes = employeeNotes;
     }
 
@@ -96,6 +101,7 @@ public class Employee
             throw new ArgumentException("Skill level must be between 1 and 5");
 
         SkillLevel = newSkillLevel;
+        UpdatedAt = DateTime.UtcNow;
     }
 
     public void UpdateMaxShiftsPerWeek(int newMaxShifts)
@@ -104,9 +110,16 @@ public class Employee
             throw new ArgumentException("Max shifts per week must be non-negative");
 
         MaxShiftsPerWeek = newMaxShifts;
+        UpdatedAt = DateTime.UtcNow;
     }
+
+    /// <summary>
+    /// עדכון זמינות עובד למשמרות
+    /// </summary>
+
     public void UpdateNotes(string newNotes)
     {
         AdminNotes = newNotes;
+        UpdatedAt = DateTime.UtcNow;
     }
 }

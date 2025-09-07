@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SmartShift.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using SmartShift.Infrastructure.Data;
 namespace SmartShift.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250823230054_AddEmployeeSkillsAvailabilityShiftRegistrationEnumsAndAI")]
+    partial class AddEmployeeSkillsAvailabilityShiftRegistrationEnumsAndAI
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -275,10 +278,6 @@ namespace SmartShift.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Gender")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -371,15 +370,8 @@ namespace SmartShift.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("MinimumEarlyEmployees")
-                        .HasColumnType("int");
-
                     b.Property<int>("MinimumEmployeeCount")
                         .HasColumnType("int");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("RequiredEmployeeCount")
                         .HasColumnType("int");
@@ -395,9 +387,6 @@ namespace SmartShift.Infrastructure.Migrations
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -427,7 +416,7 @@ namespace SmartShift.Infrastructure.Migrations
                     b.Property<Guid?>("ReviewedBy")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<int>("ShiftArrivalType")
+                    b.Property<int>("ShiftAvailability")
                         .HasColumnType("int");
 
                     b.Property<Guid>("ShiftId")

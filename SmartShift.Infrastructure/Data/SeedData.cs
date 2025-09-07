@@ -80,6 +80,7 @@ public static class SeedData
             {
                 new Shift(
                     startTime: DateTime.UtcNow.AddDays(1),
+                    minimumEarlyEmployees:4,
                     requiredEmployeeCount: 3,
                     minimumEmployeeCount: 2,
                     skillLevelRequired: 2,
@@ -90,6 +91,7 @@ public static class SeedData
                 },
                 new Shift(
                     startTime: DateTime.UtcNow.AddDays(2),
+                     minimumEarlyEmployees:4,
                     requiredEmployeeCount: 2,
                     minimumEmployeeCount: 1,
                     skillLevelRequired: 3,
@@ -100,6 +102,7 @@ public static class SeedData
                 },
                 new Shift(
                     startTime: DateTime.UtcNow.AddDays(3),
+                     minimumEarlyEmployees:4,
                     requiredEmployeeCount: 1,
                     minimumEmployeeCount: 1,
                     skillLevelRequired: 1,

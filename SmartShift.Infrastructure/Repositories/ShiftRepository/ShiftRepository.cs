@@ -23,6 +23,87 @@ public class ShiftRepository : IShiftRepository
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
+    private static (DateTime start, DateTime endExclusive) GetSunThuWindow(DateTime t)
+    {
+        var day = t.Date; // Sunday=0..Saturday=6
+        int fromSunday = (int)day.DayOfWeek;
+        var start = day.AddDays(-fromSunday); // יום ראשון של אותו שבוע
+        var end = start.AddDays(5);         // עד חמישי - בלעדי
+        return (start, end);
+    }
+
+    public async Task<WeekSnapshot> GetWeekAssignmentsSnapshotAsync(
+        Guid tenantId,
+        DateTime pivot,
+        CancellationToken cancellationToken = default)
+    {
+        if (tenantId == Guid.Empty)
+        {
+            _logger.LogWarning("GetWeekAssignmentsSnapshotAsync called with empty tenant ID");
+            throw new ArgumentException("TenantId cannot be empty", nameof(tenantId));
+        }
+
+        var (ws, we) = GetSunThuWindow(pivot);
+
+        _logger.LogInformation("Building week snapshot for tenant {TenantId} window {Start}->{End}", tenantId, ws, we);
+
+        // כמה נרשמו לשבוע הזה (Pending + Approved) לפי תאריך המשמרת בפועל
+        var desired = await _context.ShiftRegistrations
+            .Where(r => r.TenantId == tenantId
+                        && r.Shift != null
+                        && r.Shift.StartTime >= ws
+                        && r.Shift.StartTime < we)
+            .GroupBy(r => r.EmployeeId)
+            .Select(g => new { EmployeeId = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        // כמה אושרו לשבוע הזה (Approved בלבד) לפי תאריך המשמרת בפועל
+        var approvedWeek = await _context.ShiftRegistrations
+            .Where(r => r.TenantId == tenantId
+                        && r.Shift != null
+                        && r.Shift.StartTime >= ws
+                        && r.Shift.StartTime < we
+                        && r.Status == ShiftRegistrationStatus.Approved)
+            .GroupBy(r => r.EmployeeId)
+            .Select(g => new { EmployeeId = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        // כמה אושרו בחודש של ה-pivot לפי תאריך המשמרת בפועל
+        var monthStart = new DateTime(pivot.Year, pivot.Month, 1);
+        var nextMonth = monthStart.AddMonths(1);
+
+        var approvedMonth = await _context.ShiftRegistrations
+            .Where(r => r.TenantId == tenantId
+                        && r.Shift != null
+                        && r.Shift.StartTime >= monthStart
+                        && r.Shift.StartTime < nextMonth
+                        && r.Status == ShiftRegistrationStatus.Approved)
+            .GroupBy(r => r.EmployeeId)
+            .Select(g => new { EmployeeId = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        // מדיאן חודשי של הצוות
+        var monthlyCounts = approvedMonth.Select(x => x.Count).OrderBy(x => x).ToList();
+        var median = monthlyCounts.Count == 0 ? 0 : monthlyCounts[monthlyCounts.Count / 2];
+
+        var snap = new WeekSnapshot { TeamMedianMonthly = median };
+
+        foreach (var d in desired)
+            snap.DesiredThisWeek[d.EmployeeId] = d.Count;
+
+        foreach (var a in approvedWeek)
+            snap.ApprovedThisWeek[a.EmployeeId] = a.Count;
+
+        foreach (var m in approvedMonth)
+            snap.ApprovedThisMonth[m.EmployeeId] = m.Count;
+
+        _logger.LogInformation(
+            "Week snapshot built. Desired={Desired}, ApprovedWeek={ApprovedWeek}, ApprovedMonth={ApprovedMonth}, MedianMonthly={Median}",
+            snap.DesiredThisWeek.Count, snap.ApprovedThisWeek.Count, snap.ApprovedThisMonth.Count, snap.TeamMedianMonthly);
+
+        return snap;
+    }
+
     public async Task<Shift?> GetByIdAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default)
     {
         // Input validation
@@ -41,15 +122,15 @@ public class ShiftRepository : IShiftRepository
         try
         {
             _logger.LogInformation("Getting shift {ShiftId} for tenant {TenantId}", id, tenantId);
-            
+
             var shift = await _context.Shifts
                 .FirstOrDefaultAsync(s => s.Id == id && s.TenantId == tenantId, cancellationToken);
-                
+
             if (shift == null)
             {
                 _logger.LogInformation("Shift {ShiftId} not found for tenant {TenantId}", id, tenantId);
             }
-            
+
             return shift;
         }
         catch (OperationCanceledException)
@@ -64,7 +145,7 @@ public class ShiftRepository : IShiftRepository
         }
     }
 
-    
+
 
     public async Task<IEnumerable<Shift>> GetAllAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
@@ -78,12 +159,12 @@ public class ShiftRepository : IShiftRepository
         try
         {
             _logger.LogInformation("Getting all shifts for tenant {TenantId}", tenantId);
-            
+
             var shifts = await _context.Shifts
                 .Where(s => s.TenantId == tenantId)
                 .OrderBy(s => s.StartTime)
                 .ToListAsync(cancellationToken);
-                
+
             _logger.LogInformation("Found {ShiftCount} total shifts for tenant {TenantId}", shifts.Count, tenantId);
             return shifts;
         }
@@ -117,10 +198,10 @@ public class ShiftRepository : IShiftRepository
         try
         {
             _logger.LogInformation("Adding new shift for tenant {TenantId}", shift.TenantId);
-            
+
             await _context.Shifts.AddAsync(shift, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
-            
+
             _logger.LogInformation("Successfully added shift {ShiftId} for tenant {TenantId}", shift.Id, shift.TenantId);
             return shift;
         }
@@ -159,10 +240,10 @@ public class ShiftRepository : IShiftRepository
         try
         {
             _logger.LogInformation("Updating shift {ShiftId} for tenant {TenantId}", shift.Id, shift.TenantId);
-            
+
             _context.Shifts.Update(shift);
             await _context.SaveChangesAsync();
-            
+
             _logger.LogInformation("Successfully updated shift {ShiftId}", shift.Id);
         }
         catch (DbUpdateConcurrencyException ex)
@@ -200,7 +281,7 @@ public class ShiftRepository : IShiftRepository
         try
         {
             _logger.LogInformation("Attempting to delete shift {ShiftId} for tenant {TenantId}", id, tenantId);
-            
+
             var shift = await GetByIdAsync(id, tenantId, cancellationToken);
             if (shift != null)
             {
@@ -266,7 +347,7 @@ public class ShiftRepository : IShiftRepository
 
             var employee = await _context.Employees
                 .FirstOrDefaultAsync(x => x.UserId == userId && x.TenantId == tenantId, cancellationToken);
-            
+
             if (employee == null)
             {
                 _logger.LogWarning("Employee with user ID {UserId} not found in tenant {TenantId}", userId, tenantId);
@@ -281,10 +362,10 @@ public class ShiftRepository : IShiftRepository
             }
 
             var existingRequest = await _context.ShiftRegistrations
-                .AnyAsync(sr => sr.ShiftId == shiftId && 
+                .AnyAsync(sr => sr.ShiftId == shiftId &&
                                sr.EmployeeId == employee.Id &&
                                sr.TenantId == tenantId &&
-                               (sr.Status == ShiftRegistrationStatus.Pending || 
+                               (sr.Status == ShiftRegistrationStatus.Pending ||
                                 sr.Status == ShiftRegistrationStatus.Approved),
                           cancellationToken);
 
@@ -294,16 +375,16 @@ public class ShiftRepository : IShiftRepository
                 return false;
             }
 
-            var registration = new ShiftRegistration(shiftId, employee.Id, tenantId)
+            var registration = new ShiftRegistration(shiftId, employee.Id, tenantId, EmployeeShiftAvailability.Regular)
             {
                 Employee = employee,
                 Shift = shift,
                 Tenant = tenant
-            };
+            }; ;
 
             await _context.ShiftRegistrations.AddAsync(registration, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
-            
+
             _logger.LogInformation("Successfully registered employee {EmployeeId} for shift {ShiftId}", employee.Id, shiftId);
             return true;
         }
@@ -324,40 +405,105 @@ public class ShiftRepository : IShiftRepository
         }
     }
 
-    public async Task<IEnumerable<ShiftRegistration>> GetPendingRegistrationsAsync(Guid tenantId, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<ShiftRegistration>> GetPendingRegistrationsAsync(
+     Guid tenantId,
+     Guid shiftId,
+     CancellationToken cancellationToken = default)
     {
-        // Input validation
+        // Guard clauses
         if (tenantId == Guid.Empty)
         {
             _logger.LogWarning("GetPendingRegistrationsAsync called with empty tenant ID");
             throw new ArgumentException("Tenant ID cannot be empty", nameof(tenantId));
         }
+        if (shiftId == Guid.Empty)
+        {
+            _logger.LogWarning("GetPendingRegistrationsAsync called with empty shift ID");
+            throw new ArgumentException("Shift ID cannot be empty", nameof(shiftId));
+        }
+
+        using var scope = _logger.BeginScope(new Dictionary<string, object>
+        {
+            ["TenantId"] = tenantId,
+            ["ShiftId"] = shiftId
+        });
 
         try
         {
-            _logger.LogInformation("Getting pending registrations for tenant {TenantId}", tenantId);
-            
+            _logger.LogInformation("Fetching pending registrations for shift");
+
             var registrations = await _context.ShiftRegistrations
-                .Include(sr => sr.Shift)
-                .Include(sr => sr.Employee)
-                .Where(sr => sr.TenantId == tenantId && sr.Status == ShiftRegistrationStatus.Pending)
+                .AsNoTracking()
+                .Include(sr => sr.Employee) // דרוש ל-AI
+                .Where(sr => sr.TenantId == tenantId
+                          && sr.Status == ShiftRegistrationStatus.Pending
+                          && sr.ShiftId == shiftId)
                 .OrderBy(sr => sr.RegisteredAt)
+                .ThenBy(sr => sr.Id) // סדר דטרמיניסטי
                 .ToListAsync(cancellationToken);
-                
-            _logger.LogInformation("Found {RegistrationCount} pending registrations for tenant {TenantId}", registrations.Count, tenantId);
+
+            _logger.LogInformation("Fetched {RegistrationCount} pending registrations for shift {ShiftId}, tenant {TenantId}",
+                registrations.Count, shiftId, tenantId);
+
             return registrations;
         }
         catch (OperationCanceledException)
         {
-            _logger.LogWarning("GetPendingRegistrationsAsync operation was cancelled for tenant {TenantId}", tenantId);
+            _logger.LogWarning("GetPendingRegistrationsAsync was cancelled for shift {ShiftId}, tenant {TenantId}", shiftId, tenantId);
             throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting pending registrations for tenant {TenantId}", tenantId);
+            _logger.LogError(ex, "Error getting pending registrations for shift {ShiftId}, tenant {TenantId}", shiftId, tenantId);
             throw;
         }
     }
+
+
+    //public async Task<IEnumerable<ShiftRegistration>> GetApprovedRegistrationsAsync(
+    //Guid tenantId,
+    //IEnumerable<Guid> shiftIds,
+    //CancellationToken cancellationToken = default)
+    //{
+    //    if (tenantId == Guid.Empty)
+    //        throw new ArgumentException("Tenant ID cannot be empty", nameof(tenantId));
+    //    if (shiftIds is null)
+    //        throw new ArgumentNullException(nameof(shiftIds));
+
+    //    var ids = shiftIds.Distinct().ToList();
+    //    if (ids.Count == 0)
+    //        return Enumerable.Empty<ShiftRegistration>();
+
+    //    try
+    //    {
+    //        _logger.LogInformation("Getting approved registrations for {Count} shifts, tenant {TenantId}",
+    //            ids.Count, tenantId);
+
+    //        var registrations = await _context.ShiftRegistrations
+    //            .Include(sr => sr.Shift)
+    //            .Include(sr => sr.Employee)
+    //            .Where(sr => sr.TenantId == tenantId &&
+    //                         sr.Status == ShiftRegistrationStatus.Approved &&
+    //                         ids.Contains(sr.ShiftId))
+    //            .OrderBy(sr => sr.ReviewedAt ?? sr.RegisteredAt)
+    //            .ToListAsync(cancellationToken);
+
+    //        _logger.LogInformation("Found {Count} approved registrations for tenant {TenantId}",
+    //            registrations.Count, tenantId);
+
+    //        return registrations;
+    //    }
+    //    catch (OperationCanceledException)
+    //    {
+    //        _logger.LogWarning("GetApprovedRegistrationsAsync (by shifts) was cancelled for tenant {TenantId}", tenantId);
+    //        throw;
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "Error getting approved registrations (by shifts) for tenant {TenantId}", tenantId);
+    //        throw;
+    //    }
+    //}
 
     public async Task<bool> ApproveShiftRegistrationAsync(Guid registrationId, Guid reviewedBy, string? comment, Guid tenantId, CancellationToken cancellationToken = default)
     {
@@ -382,7 +528,7 @@ public class ShiftRepository : IShiftRepository
 
         try
         {
-            _logger.LogInformation("Approving registration {RegistrationId} by reviewer {ReviewedBy} in tenant {TenantId}", 
+            _logger.LogInformation("Approving registration {RegistrationId} by reviewer {ReviewedBy} in tenant {TenantId}",
                 registrationId, reviewedBy, tenantId);
 
             var registration = await _context.ShiftRegistrations
@@ -396,14 +542,14 @@ public class ShiftRepository : IShiftRepository
 
             if (registration.Status != ShiftRegistrationStatus.Pending)
             {
-                _logger.LogWarning("Registration {RegistrationId} is not in pending status (current: {Status})", 
+                _logger.LogWarning("Registration {RegistrationId} is not in pending status (current: {Status})",
                     registrationId, registration.Status);
                 return false;
             }
 
             registration.Approve(reviewedBy, comment);
             await _context.SaveChangesAsync(cancellationToken);
-            
+
             _logger.LogInformation("Successfully approved registration {RegistrationId}", registrationId);
             return true;
         }
@@ -447,7 +593,7 @@ public class ShiftRepository : IShiftRepository
 
         try
         {
-            _logger.LogInformation("Rejecting registration {RegistrationId} by reviewer {ReviewedBy} in tenant {TenantId}", 
+            _logger.LogInformation("Rejecting registration {RegistrationId} by reviewer {ReviewedBy} in tenant {TenantId}",
                 registrationId, reviewedBy, tenantId);
 
             var registration = await _context.ShiftRegistrations
@@ -461,14 +607,14 @@ public class ShiftRepository : IShiftRepository
 
             if (registration.Status != ShiftRegistrationStatus.Pending)
             {
-                _logger.LogWarning("Registration {RegistrationId} is not in pending status (current: {Status})", 
+                _logger.LogWarning("Registration {RegistrationId} is not in pending status (current: {Status})",
                     registrationId, registration.Status);
                 return false;
             }
 
             registration.Reject(reviewedBy, comment);
             await _context.SaveChangesAsync(cancellationToken);
-            
+
             _logger.LogInformation("Successfully rejected registration {RegistrationId}", registrationId);
             return true;
         }
@@ -507,7 +653,7 @@ public class ShiftRepository : IShiftRepository
         try
         {
             _logger.LogInformation("Getting approved employees for shift {ShiftId} in tenant {TenantId}", shiftId, tenantId);
-            
+
             var employees = await _context.ShiftRegistrations
                 .Where(sr => sr.ShiftId == shiftId &&
                             sr.TenantId == tenantId &&
@@ -515,7 +661,7 @@ public class ShiftRepository : IShiftRepository
                 .Include(sr => sr.Employee)
                 .Select(sr => sr.Employee!)
                 .ToListAsync(cancellationToken);
-                
+
             _logger.LogInformation("Found {EmployeeCount} approved employees for shift {ShiftId}", employees.Count, shiftId);
             return employees;
         }
@@ -549,12 +695,12 @@ public class ShiftRepository : IShiftRepository
         try
         {
             _logger.LogInformation("Getting approved employee count for shift {ShiftId} in tenant {TenantId}", shiftId, tenantId);
-            
+
             var count = await _context.ShiftRegistrations
                 .CountAsync(sr => sr.ShiftId == shiftId &&
                                  sr.TenantId == tenantId &&
                                  sr.Status == ShiftRegistrationStatus.Approved, cancellationToken);
-                                 
+
             _logger.LogInformation("Found {EmployeeCount} approved employees for shift {ShiftId}", count, shiftId);
             return count;
         }
@@ -601,16 +747,16 @@ public class ShiftRepository : IShiftRepository
         try
         {
             _logger.LogInformation("Getting shifts from {StartDate} to {EndDate} for tenant {TenantId}", startDate, endDate, tenantId);
-            
+
             var shifts = await _context.Shifts
-                .Where(s => s.TenantId == tenantId && 
-                           s.StartTime >= startDate && 
+                .Where(s => s.TenantId == tenantId &&
+                           s.StartTime >= startDate &&
                            s.StartTime <= endDate)
                 .Include(s => s.ShiftRegistrations)
                     .ThenInclude(sr => sr.Employee)
                 .OrderBy(s => s.StartTime)
                 .ToListAsync(cancellationToken);
-                
+
             _logger.LogInformation("Found {ShiftCount} shifts for tenant {TenantId} in date range", shifts.Count, tenantId);
             return shifts;
         }
@@ -625,4 +771,48 @@ public class ShiftRepository : IShiftRepository
             throw;
         }
     }
+
+    /// <summary>
+    /// שליפת כל העובדים עבור Tenant ספציפי
+    /// </summary>
+    public async Task<IEnumerable<Employee>> GetAllEmployeesForTenantAsync(
+     Guid tenantId,
+     CancellationToken cancellationToken = default)
+    {
+        if (tenantId == Guid.Empty)
+        {
+            _logger.LogWarning("GetAllEmployeesForTenantAsync called with empty tenant ID");
+            throw new ArgumentException("Tenant ID cannot be empty", nameof(tenantId));
+        }
+
+        try
+        {
+            _logger.LogInformation("Getting all employees for tenant {TenantId}", tenantId);
+
+            var employees = await _context.Employees
+                .AsNoTracking()
+                .Where(e => e.TenantId == tenantId)
+                .OrderBy(e => e.FirstName ?? string.Empty) 
+                .ThenBy(e => e.LastName ?? string.Empty)  
+                .ToListAsync(cancellationToken);
+
+            _logger.LogInformation("Found {EmployeeCount} employees for tenant {TenantId}",
+                employees.Count, tenantId);
+
+            return employees;
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("GetAllEmployeesForTenantAsync operation was cancelled for tenant {TenantId}", tenantId);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting all employees for tenant {TenantId}", tenantId);
+            throw;
+        }
+    }
+
 }
+
+

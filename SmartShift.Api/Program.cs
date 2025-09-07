@@ -21,6 +21,7 @@ using SmartShift.Application.Common.Interfaces;
 using SmartShift.Api.Services;
 using SmartShift.Application.Features.Scheduling.RegisterForShift;
 using SmartShift.Domain.Services; // ✅ חובה ל-MediatR
+using SmartShift.Infrastructure.AI; // ✅ הוסף את זה
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -157,8 +158,12 @@ builder.Services.AddScoped<RefreshTokenService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<EmployeeShiftMatchingService>(); // רישום השירות החדש
-
+builder.Services.AddScoped<ShiftScoringService>();
+// ✅ הוסף את השורות הבאות:
+builder.Services.AddSemanticKernel(builder.Configuration);
+builder.Services.AddScoped<IShiftAssignmentAIService, ShiftAssignmentAIService>();
 // ✅ MediatR - כולל רישום נכון
+
 builder.Services.AddMediatR(cfg =>
 {
     cfg.RegisterServicesFromAssembly(typeof(SmartShift.Application.DependencyInjection).Assembly);

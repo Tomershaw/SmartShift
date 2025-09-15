@@ -9,6 +9,20 @@ const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
   />
 );
 
+// קריאת role מה-JWT (claim מורחב או payload.role)
+function getRoleFromToken(token: string | null): string | undefined {
+  if (!token) return;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return (
+      payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
+      payload.role
+    );
+  } catch {
+    return;
+  }
+}
+
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -18,7 +32,6 @@ export default function AuthPage() {
   const [showReset, setShowReset] = useState(false);
   const [resetMessage, setResetMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  
 
   const navigate = useNavigate();
 
@@ -26,7 +39,10 @@ export default function AuthPage() {
     const checkToken = async () => {
       const isValid = await authService.validateToken();
       setIsLoading(false);
-      if (isValid) navigate("/schedule");
+      if (isValid) {
+        const role = getRoleFromToken(localStorage.getItem("token"));
+        navigate(role === "Employee" ? "/employee/signup" : "/schedule");
+      }
     };
 
     checkToken();
@@ -36,7 +52,7 @@ export default function AuthPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if(!email || !password && !fullName) {
+    if (!email || (!password && !fullName)) {
       setError("Please fill in all fields");
       return;
     }
@@ -46,37 +62,26 @@ export default function AuthPage() {
         const res = await authService.login(email, password);
         localStorage.setItem("token", res.token);
         localStorage.setItem("refreshToken", res.refreshToken);
-        navigate("/schedule");
+
+        const role = getRoleFromToken(res.token);
+        navigate(role === "Employee" ? "/employee/signup" : "/schedule");
       } else {
         await authService.register(fullName, email, password);
         setIsLogin(true);
         setError("");
       }
     } catch (err: unknown) {
-      console.log('Error:', err);
-      
-      // Type guard לבדיקה בטוחה
-      if (err && typeof err === 'object' && 'response' in err) {
+      console.log("Error:", err);
+      if (err && typeof err === "object" && "response" in err) {
         const error = err as {
-          response?: {
-            data?: {
-              errors?: Record<string, string[]>;
-              message?: string;
-            }
-          }
+          response?: { data?: { errors?: Record<string, string[]>; message?: string } };
         };
-  
         const errors = error.response?.data?.errors;
         const message = error.response?.data?.message;
-  
-        if (errors) {
-          const flatMessages = Object.values(errors).flat().join(" ");
-          setError(flatMessages);
-        } else if (message) {
-          setError(message);
-        } else {
-          setError("Something went wrong. Please try again.");
-        }
+
+        if (errors) setError(Object.values(errors).flat().join(" "));
+        else if (message) setError(message);
+        else setError("Something went wrong. Please try again.");
       } else {
         setError("Something went wrong. Please try again.");
       }
@@ -111,7 +116,7 @@ export default function AuthPage() {
         {!showReset ? (
           <>
             <h2 className="text-2xl font-semibold text-center text-gray-600 mb-6">
-              {isLogin ? "Welcome Back!" : "Create an Account"} 
+              {isLogin ? "Welcome Back!" : "Create an Account"}
             </h2>
 
             {error && (

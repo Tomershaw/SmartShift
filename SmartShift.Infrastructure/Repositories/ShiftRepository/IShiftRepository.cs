@@ -26,7 +26,11 @@ public interface IShiftRepository
     Task DeleteAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default);
     Task<Shift> AddAsync(Shift shift, CancellationToken cancellationToken = default);
     Task UpdateAsync(Shift shift);
-    Task<bool> RegisterEmployeeForShiftAsync(Guid shiftId, string userId, Guid tenantId, CancellationToken cancellationToken = default);
+    Task<bool> RegisterEmployeeForShiftAsync(Guid shiftId,
+        string userId,
+        Guid tenantId,
+        EmployeeShiftAvailability shiftArrivalType,
+        CancellationToken cancellationToken = default);
     Task<IEnumerable<Shift>> GetShiftsInDateRangeAsync(DateTime startDate, DateTime endDate, Guid tenantId, CancellationToken cancellationToken = default);
 
     Task<IEnumerable<ShiftRegistration>> GetPendingRegistrationsAsync(Guid tenantId, Guid shiftId, CancellationToken cancellationToken = default);
@@ -41,4 +45,8 @@ public interface IShiftRepository
 
     // תוספת חדשה - מחזירה צילום מצב שבועי מרוכז לעובדים כולם בבת אחת
     Task<WeekSnapshot> GetWeekAssignmentsSnapshotAsync(Guid tenantId, DateTime pivot, CancellationToken cancellationToken = default);
+
+    
+    Task<IEnumerable<Shift>> GetShiftsByEmployeeAsync(Guid employeeId, Guid tenantId, CancellationToken cancellationToken = default);
+
 }

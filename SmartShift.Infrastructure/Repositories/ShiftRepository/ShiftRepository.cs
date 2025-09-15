@@ -311,7 +311,12 @@ public class ShiftRepository : IShiftRepository
         }
     }
 
-    public async Task<bool> RegisterEmployeeForShiftAsync(Guid shiftId, string userId, Guid tenantId, CancellationToken cancellationToken = default)
+    public async Task<bool> RegisterEmployeeForShiftAsync(
+     Guid shiftId,
+     string userId,
+     Guid tenantId,
+     EmployeeShiftAvailability shiftArrivalType,
+     CancellationToken cancellationToken = default)
     {
         // Input validation
         if (shiftId == Guid.Empty)
@@ -334,7 +339,9 @@ public class ShiftRepository : IShiftRepository
 
         try
         {
-            _logger.LogInformation("Registering user {UserId} for shift {ShiftId} in tenant {TenantId}", userId, shiftId, tenantId);
+            _logger.LogInformation(
+                "Registering user {UserId} for shift {ShiftId} in tenant {TenantId} with arrival type {ArrivalType}",
+                userId, shiftId, tenantId, shiftArrivalType);
 
             var shift = await _context.Shifts
                 .FirstOrDefaultAsync(s => s.Id == shiftId && s.TenantId == tenantId, cancellationToken);
@@ -361,31 +368,38 @@ public class ShiftRepository : IShiftRepository
                 return false;
             }
 
-            var existingRequest = await _context.ShiftRegistrations
-                .AnyAsync(sr => sr.ShiftId == shiftId &&
-                               sr.EmployeeId == employee.Id &&
-                               sr.TenantId == tenantId &&
-                               (sr.Status == ShiftRegistrationStatus.Pending ||
-                                sr.Status == ShiftRegistrationStatus.Approved),
-                          cancellationToken);
+            // לא לאפשר רישום כפול פעיל לאותו Shift
+            var exists = await _context.ShiftRegistrations.AnyAsync(sr =>
+                    sr.ShiftId == shiftId &&
+                    sr.EmployeeId == employee.Id &&
+                    sr.TenantId == tenantId &&
+                   (sr.Status == ShiftRegistrationStatus.Pending ||
+                    sr.Status == ShiftRegistrationStatus.Approved),
+                cancellationToken);
 
-            if (existingRequest)
+            if (exists)
             {
-                _logger.LogWarning("Employee {EmployeeId} already has a registration for shift {ShiftId}", employee.Id, shiftId);
+                _logger.LogWarning(
+                    "Employee {EmployeeId} already has an active registration for shift {ShiftId}",
+                    employee.Id, shiftId);
                 return false;
             }
 
-            var registration = new ShiftRegistration(shiftId, employee.Id, tenantId, EmployeeShiftAvailability.Regular)
+            // יצירת רישום עם בחירת העובד שהגיעה בבקשה
+            var registration = new ShiftRegistration(shiftId, employee.Id, tenantId, shiftArrivalType)
             {
                 Employee = employee,
                 Shift = shift,
                 Tenant = tenant
-            }; ;
+            };
 
             await _context.ShiftRegistrations.AddAsync(registration, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
 
-            _logger.LogInformation("Successfully registered employee {EmployeeId} for shift {ShiftId}", employee.Id, shiftId);
+            _logger.LogInformation(
+                "Successfully registered employee {EmployeeId} for shift {ShiftId} with arrival type {ArrivalType}",
+                employee.Id, shiftId, shiftArrivalType);
+
             return true;
         }
         catch (OperationCanceledException)
@@ -400,10 +414,13 @@ public class ShiftRepository : IShiftRepository
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error registering user {UserId} for shift {ShiftId} in tenant {TenantId}", userId, shiftId, tenantId);
+            _logger.LogError(ex,
+                "Error registering user {UserId} for shift {ShiftId} in tenant {TenantId}",
+                userId, shiftId, tenantId);
             throw;
         }
     }
+
 
     public async Task<IEnumerable<ShiftRegistration>> GetPendingRegistrationsAsync(
      Guid tenantId,
@@ -792,8 +809,8 @@ public class ShiftRepository : IShiftRepository
             var employees = await _context.Employees
                 .AsNoTracking()
                 .Where(e => e.TenantId == tenantId)
-                .OrderBy(e => e.FirstName ?? string.Empty) 
-                .ThenBy(e => e.LastName ?? string.Empty)  
+                .OrderBy(e => e.FirstName ?? string.Empty)
+                .ThenBy(e => e.LastName ?? string.Empty)
                 .ToListAsync(cancellationToken);
 
             _logger.LogInformation("Found {EmployeeCount} employees for tenant {TenantId}",
@@ -812,6 +829,27 @@ public class ShiftRepository : IShiftRepository
             throw;
         }
     }
+
+    public async Task<IEnumerable<Shift>> GetShiftsByEmployeeAsync(
+    Guid employeeId,
+    Guid tenantId,
+    CancellationToken cancellationToken = default)
+    {
+        if (employeeId == Guid.Empty)
+            throw new ArgumentException("Employee ID cannot be empty", nameof(employeeId));
+
+        if (tenantId == Guid.Empty)
+            throw new ArgumentException("Tenant ID cannot be empty", nameof(tenantId));
+
+        return await _context.ShiftRegistrations
+            .Where(sr => sr.EmployeeId == employeeId && sr.TenantId == tenantId)
+            .Include(sr => sr.Shift)
+            .Select(sr => sr.Shift!)
+            .Distinct()
+            .OrderBy(s => s.StartTime)
+            .ToListAsync(cancellationToken);
+    }
+
 
 }
 

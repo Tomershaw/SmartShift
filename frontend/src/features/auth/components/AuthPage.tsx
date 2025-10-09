@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import authService from "../api/authService";
+import { useLoading } from "../../appLoading/context/useLoading"; // גלובלי
 
 const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
   <input
@@ -9,7 +10,7 @@ const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
   />
 );
 
-// קריאת role מה-JWT (claim מורחב או payload.role)
+// קריאת role מה-JWT
 function getRoleFromToken(token: string | null): string | undefined {
   if (!token) return;
   try {
@@ -31,24 +32,37 @@ export default function AuthPage() {
   const [error, setError] = useState("");
   const [showReset, setShowReset] = useState(false);
   const [resetMessage, setResetMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // רק לכפתור
 
+  const { show, hide } = useLoading();
   const navigate = useNavigate();
 
   useEffect(() => {
     const checkToken = async () => {
+      show("בודק התחברות...");
       const isValid = await authService.validateToken();
-      setIsLoading(false);
+
       if (isValid) {
         const role = getRoleFromToken(localStorage.getItem("token"));
-        navigate(role === "Employee" ? "/employee/signup" : "/schedule");
+        navigate(role === "Employee" ? "/employee/signup" : "/schedule", {
+          replace: true,
+        });
+        return;
       }
+
+      hide();
     };
 
     checkToken();
     document.addEventListener("visibilitychange", authService.handleTabExit);
-    return () => document.removeEventListener("visibilitychange", authService.handleTabExit);
-  }, [navigate]);
+    return () => {
+      document.removeEventListener(
+        "visibilitychange",
+        authService.handleTabExit
+      );
+      hide();
+    };
+  }, [navigate, show, hide]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -56,7 +70,10 @@ export default function AuthPage() {
       setError("Please fill in all fields");
       return;
     }
+
     setIsLoading(true);
+    show(isLogin ? "מתחבר..." : "נרשם...");
+
     try {
       if (isLogin) {
         const res = await authService.login(email, password);
@@ -64,17 +81,24 @@ export default function AuthPage() {
         localStorage.setItem("refreshToken", res.refreshToken);
 
         const role = getRoleFromToken(res.token);
-        navigate(role === "Employee" ? "/employee/signup" : "/schedule");
+        navigate(role === "Employee" ? "/employee/signup" : "/schedule", {
+          replace: true,
+        });
+        return;
       } else {
         await authService.register(fullName, email, password);
         setIsLogin(true);
         setError("");
+        hide();
+        setIsLoading(false);
       }
     } catch (err: unknown) {
       console.log("Error:", err);
       if (err && typeof err === "object" && "response" in err) {
         const error = err as {
-          response?: { data?: { errors?: Record<string, string[]>; message?: string } };
+          response?: {
+            data?: { errors?: Record<string, string[]>; message?: string };
+          };
         };
         const errors = error.response?.data?.errors;
         const message = error.response?.data?.message;
@@ -85,7 +109,7 @@ export default function AuthPage() {
       } else {
         setError("Something went wrong. Please try again.");
       }
-    } finally {
+      hide();
       setIsLoading(false);
     }
   };
@@ -95,14 +119,6 @@ export default function AuthPage() {
     setResetMessage("Reset functionality will be available soon.");
   };
 
-  if (isLoading) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-white">
-        <div className="w-12 h-12 border-4 border-blue-500 border-dashed rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
   return (
     <div className="fixed inset-0 flex justify-center items-center">
       <div
@@ -110,8 +126,10 @@ export default function AuthPage() {
         style={{ backgroundImage: "url('/images/background.jpg')" }}
       ></div>
 
-      <main className="w-full max-w-md bg-white bg-opacity-80 p-8 rounded-2xl shadow-2xl backdrop-blur-md">
-        <h1 className="text-5xl font-bold text-center text-gray-800 mb-8">SmartShift</h1>
+      <main className="w-full max-w-md bg-white/80 p-8 rounded-2xl shadow-2xl backdrop-blur-md">
+        <h1 className="text-5xl font-bold text-center text-gray-800 mb-8">
+          SmartShift
+        </h1>
 
         {!showReset ? (
           <>
@@ -131,7 +149,7 @@ export default function AuthPage() {
                   type="text"
                   placeholder="Full Name"
                   value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
+                  onChange={e => setFullName(e.target.value)}
                   required
                 />
               )}
@@ -139,20 +157,21 @@ export default function AuthPage() {
                 type="email"
                 placeholder="Email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={e => setEmail(e.target.value)}
                 required
               />
               <Input
                 type="password"
                 placeholder="Password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={e => setPassword(e.target.value)}
                 minLength={6}
                 required
               />
               <button
                 type="submit"
                 className="w-full bg-gradient-to-r from-blue-500 to-teal-400 text-white p-3 rounded-lg hover:from-blue-600 hover:to-teal-500 transition transform hover:scale-105"
+                disabled={isLoading}
               >
                 {isLogin ? "Login" : "Register"}
               </button>
@@ -191,7 +210,10 @@ export default function AuthPage() {
                 {resetMessage}
               </div>
             )}
-            <form onSubmit={handleResetPassword} className="space-y-4 w-full px-4">
+            <form
+              onSubmit={handleResetPassword}
+              className="space-y-4 w-full px-4"
+            >
               <button
                 type="submit"
                 className="w-full bg-gradient-to-r from-blue-500 to-teal-400 text-white p-3 rounded-lg hover:from-blue-600 hover:to-teal-500 transition transform hover:scale-105"

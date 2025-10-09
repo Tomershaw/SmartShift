@@ -98,7 +98,8 @@ export const schedulingApi = {
       "/scheduling/employees/my-shifts",
       { params: { startDate, endDate } }
     );
-
+   // console.log("RAW:", data);
+   // console.table(data?.shifts ?? []);
     // אם אתה סומך 100% על השרת שזה תמיד מערך: החזר ישירות data.shifts.map(...)
     const rows = data.shifts ?? [];
 

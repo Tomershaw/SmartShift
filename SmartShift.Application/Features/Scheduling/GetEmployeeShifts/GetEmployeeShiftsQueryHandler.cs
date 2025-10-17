@@ -58,6 +58,7 @@ public class GetEmployeeShiftsQueryHandler : IRequestHandler<GetEmployeeShiftsQu
             var utcEndExclusive = TimeZoneInfo.ConvertTimeToUtc(endLocalExclusive, ilTz);
 
             // שליפת הרשמות בטווח לפי StartTime UTC
+            // שליפת כל ההרשמות בטווח, ממוין כך שהאחרונה (UpdatedAt או RegisteredAt) בסוף
             var registrations = await _context.ShiftRegistrations
                 .AsNoTracking()
                 .Include(sr => sr.Shift)
@@ -67,7 +68,7 @@ public class GetEmployeeShiftsQueryHandler : IRequestHandler<GetEmployeeShiftsQu
                     sr.Shift != null &&
                     sr.Shift.StartTime >= utcStart &&
                     sr.Shift.StartTime < utcEndExclusive)
-                .OrderByDescending(sr => sr.Shift!.StartTime)
+                .OrderBy(sr => sr.UpdatedAt ?? sr.RegisteredAt) // הכי חדש בסוף הרשימה
                 .ToListAsync(cancellationToken);
 
             var shifts = registrations.Select(reg => new EmployeeShiftDto
@@ -86,6 +87,7 @@ public class GetEmployeeShiftsQueryHandler : IRequestHandler<GetEmployeeShiftsQu
                 ReviewedAt = reg.ReviewedAt,
                 ReviewComment = reg.ReviewComment
             }).ToList();
+
 
             _logger.LogInformation("Found {Count} regs for employee {EmployeeId} in {Start}..{End} (IL days)",
                 shifts.Count, request.EmployeeId, request.StartDate, request.EndDate);

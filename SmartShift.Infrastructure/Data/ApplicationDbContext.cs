@@ -95,9 +95,10 @@
                   .OnDelete(DeleteBehavior.NoAction);
 
             // אינדקס ייחודי - עובד יכול להירשם פעם אחת למשמרת
-            entity.HasIndex(sr => new { sr.ShiftId, sr.EmployeeId })
+            entity.HasIndex(sr => new { sr.TenantId, sr.EmployeeId, sr.ShiftId })
                   .IsUnique()
-                  .HasDatabaseName("IX_ShiftRegistration_ShiftId_EmployeeId");
+                  .HasDatabaseName("UX_ShiftRegistration_Active")
+                  .HasFilter("[Status] IN (0,1)");
         });
     }
     }

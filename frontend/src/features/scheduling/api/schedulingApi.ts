@@ -11,6 +11,9 @@ export type RegisterForShiftResponse = {
   message: string;
 };
 
+// חדש: טיפוס לסטטוס מצומצם ל-0|1|2|3
+export type RegistrationStatusNum = 0 | 1 | 2 | 3;
+
 type MyShiftsResponse = {
   success: boolean;
   message: string | null;
@@ -26,11 +29,12 @@ type ShiftRow = {
   shiftArrivalType?: string | number;   // אופציונלי
 };
 
+// עדכון: status הוא RegistrationStatusNum במקום number
 export type MyRegistration = {
   shiftId: string;
   shiftDate: string;        // ISO YYYY-MM-DD לפי Asia/Jerusalem
-  shiftArrivalType: number; // 1=Regular, 2=Early
-  status: number;           // 0=Pending, 1=Approved, 2=Rejected, 3=Cancelled
+  shiftArrivalType: 1 | 2;  // 1=Regular, 2=Early
+  status: RegistrationStatusNum; // 0=Pending, 1=Approved, 2=Rejected, 3=Cancelled
 };
 
 export type EmployeesShifts = {
@@ -38,8 +42,8 @@ export type EmployeesShifts = {
 };
 
 /* ===================== Mappers ===================== */
-// ממיר סטטוס למספר 0..3
-function toNumStatus(s: string | number | undefined): 0 | 1 | 2 | 3 {
+// עדכון: הפונקציה מחזירה RegistrationStatusNum
+function toNumStatus(s: string | number | undefined): RegistrationStatusNum {
   if (s === 1 || s === "Approved") return 1;
   if (s === 2 || s === "Rejected") return 2;
   if (s === 3 || s === "Cancelled") return 3;
@@ -93,14 +97,13 @@ export const schedulingApi = {
     return response.data;
   },
 
+  // עכשיו הפונקציה מחזירה MyRegistration עם status מטיפוס RegistrationStatusNum
   async getMyRegistrations(startDate: string, endDate: string): Promise<MyRegistration[]> {
     const { data } = await api.get<MyShiftsResponse>(
       "/scheduling/employees/my-shifts",
       { params: { startDate, endDate } }
     );
-   // console.log("RAW:", data);
-   // console.table(data?.shifts ?? []);
-    // אם אתה סומך 100% על השרת שזה תמיד מערך: החזר ישירות data.shifts.map(...)
+
     const rows = data.shifts ?? [];
 
     return rows.map((x) => ({
@@ -109,5 +112,10 @@ export const schedulingApi = {
       status: toNumStatus(x.registrationStatus),
       shiftArrivalType: toNumArrival(x.shiftArrivalType),
     }));
+  },
+
+  async cancelMyRegistration(shiftId: string): Promise<{ success: boolean }> {
+    const { data } = await api.post<{ success: boolean }>(`/scheduling/shifts/${shiftId}/cancel`);
+    return data;
   },
 };

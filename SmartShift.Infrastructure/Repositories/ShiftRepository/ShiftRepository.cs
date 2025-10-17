@@ -850,6 +850,93 @@ public class ShiftRepository : IShiftRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<bool> CancelRegistrationAsync(
+     Guid shiftId,
+     string userId,
+     Guid tenantId,
+     CancellationToken cancellationToken = default)
+    {
+        if (shiftId == Guid.Empty) throw new ArgumentException("Shift ID cannot be empty", nameof(shiftId));
+        if (string.IsNullOrWhiteSpace(userId)) throw new ArgumentException("User ID cannot be null or empty", nameof(userId));
+        if (tenantId == Guid.Empty) throw new ArgumentException("Tenant ID cannot be empty", nameof(tenantId));
+
+        using var scope = _logger.BeginScope(new Dictionary<string, object>
+        {
+            ["TenantId"] = tenantId,
+            ["ShiftId"] = shiftId,
+            ["UserId"] = userId
+        });
+
+        try
+        {
+            _logger.LogInformation("Cancelling registration for user {UserId} in shift {ShiftId} for tenant {TenantId}",
+                userId, shiftId, tenantId);
+
+            // מציאת העובד
+            var employee = await _context.Employees
+                .FirstOrDefaultAsync(e => e.UserId == userId && e.TenantId == tenantId, cancellationToken);
+
+            if (employee == null)
+            {
+                _logger.LogWarning("Employee with user ID {UserId} not found in tenant {TenantId}", userId, tenantId);
+                return false;
+            }
+
+            // נאתר את ההרשמה הפעילה האחרונה בלבד
+            var registration = await _context.ShiftRegistrations
+                .Where(sr => sr.ShiftId == shiftId
+                          && sr.EmployeeId == employee.Id
+                          && sr.TenantId == tenantId
+                          && (sr.Status == ShiftRegistrationStatus.Pending
+                              || sr.Status == ShiftRegistrationStatus.Approved))
+                .OrderByDescending(sr => sr.RegisteredAt) // הכי חדשה
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (registration == null)
+            {
+                // אידמפוטנטיות: אם אין הרשמה פעילה, בעיניי זה תקין
+                _logger.LogInformation("No active registration to cancel. Treat as success. Shift={ShiftId}, Emp={EmployeeId}",
+                    shiftId, employee.Id);
+                return true;
+            }
+
+            // כלל עסקי: עובד לא מבטל Approved לבד
+            if (registration.Status == ShiftRegistrationStatus.Approved)
+            {
+                _logger.LogInformation("Employee {EmployeeId} cannot cancel approved registration {RegistrationId} - manager approval required",
+                    employee.Id, registration.Id);
+                return false;
+            }
+
+            // כאן מובטח Pending
+            registration.Cancel();
+            // אם יש שדה UpdatedAt: registration.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation("Successfully cancelled registration {RegistrationId} for employee {EmployeeId}",
+                registration.Id, employee.Id);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("CancelRegistrationAsync operation was cancelled for shift {ShiftId}", shiftId);
+            throw;
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(ex, "Database error while cancelling registration for shift {ShiftId}", shiftId);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cancelling registration for user {UserId} in shift {ShiftId}", userId, shiftId);
+            throw;
+        }
+    }
+
+
+
 
 }
 

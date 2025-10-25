@@ -44,7 +44,7 @@ export default function AuthPage() {
 
       if (isValid) {
         const role = getRoleFromToken(localStorage.getItem("token"));
-        navigate(role === "Employee" ? "/employee/signup" : "/schedule", {
+        navigate(role === "Employee" ? "/employee/signup" :  "/admin", {
           replace: true,
         });
         return;
@@ -81,7 +81,7 @@ export default function AuthPage() {
         localStorage.setItem("refreshToken", res.refreshToken);
 
         const role = getRoleFromToken(res.token);
-        navigate(role === "Employee" ? "/employee/signup" : "/schedule", {
+        navigate(role === "Employee" ? "/employee/signup" :  "/admin", {
           replace: true,
         });
         return;

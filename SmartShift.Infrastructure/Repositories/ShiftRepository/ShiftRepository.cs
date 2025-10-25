@@ -768,7 +768,7 @@ public class ShiftRepository : IShiftRepository
             var shifts = await _context.Shifts
                 .Where(s => s.TenantId == tenantId &&
                            s.StartTime >= startDate &&
-                           s.StartTime <= endDate)
+                            s.StartTime < endDate)
                 .Include(s => s.ShiftRegistrations)
                     .ThenInclude(sr => sr.Employee)
                 .OrderBy(s => s.StartTime)

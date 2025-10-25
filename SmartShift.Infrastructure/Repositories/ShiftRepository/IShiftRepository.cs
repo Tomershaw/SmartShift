@@ -26,11 +26,7 @@ public interface IShiftRepository
     Task DeleteAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default);
     Task<Shift> AddAsync(Shift shift, CancellationToken cancellationToken = default);
     Task UpdateAsync(Shift shift);
-    Task<bool> RegisterEmployeeForShiftAsync(Guid shiftId,
-        string userId,
-        Guid tenantId,
-        EmployeeShiftAvailability shiftArrivalType,
-        CancellationToken cancellationToken = default);
+    Task<bool> RegisterEmployeeForShiftAsync(Guid shiftId, string userId,Guid tenantId, EmployeeShiftAvailability shiftArrivalType, CancellationToken cancellationToken = default);
     Task<IEnumerable<Shift>> GetShiftsInDateRangeAsync(DateTime startDate, DateTime endDate, Guid tenantId, CancellationToken cancellationToken = default);
 
     Task<IEnumerable<ShiftRegistration>> GetPendingRegistrationsAsync(Guid tenantId, Guid shiftId, CancellationToken cancellationToken = default);

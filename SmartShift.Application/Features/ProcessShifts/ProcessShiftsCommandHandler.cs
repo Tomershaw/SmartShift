@@ -29,6 +29,7 @@ public class ProcessShiftsCommandHandler
     {
         // 1) פירוש טווח תאריכים
         var (start, end) = ResolveRangeOrDefault(request.StartString, request.EndString, _logger);
+
         var result = new ProcessShiftsResult();
 
         using (_logger.BeginScope(new Dictionary<string, object?>
@@ -217,6 +218,7 @@ public class ProcessShiftsCommandHandler
                     result.Results.Add(new
                     {
                         shiftId = shift.Id,
+                        startTime = new DateTimeOffset(DateTime.SpecifyKind(shift.StartTime, DateTimeKind.Utc)).ToString("o"), // ADD
                         required = shift.RequiredEmployeeCount,
                         minimum = shift.MinimumEmployeeCount,
                         minimumEarly = shift.MinimumEarlyEmployees,
@@ -243,31 +245,44 @@ public class ProcessShiftsCommandHandler
     }
 
     // ברירת מחדל לטווח: אם חסרים תאריכים → ראשון עד חמישי של השבוע הבא (UTC)
-    private static (DateTime start, DateTime end) ResolveRangeOrDefault(string? startStr, string? endStr, ILogger logger)
+    // מחזיר startUtc (inclusive) ו-endExclusiveUtc (exclusive)
+    private static (DateTime start, DateTime endExclusive) ResolveRangeOrDefault(
+        string? startStr, string? endStr, ILogger logger)
     {
-        var now = DateTime.UtcNow;
+        // ברירת מחדל: ראשון-חמישי של השבוע הבא (תאריכים בלי שעה)
+        var nowUtc = DateTime.UtcNow;
 
         DateTime start;
         if (!DateTime.TryParse(startStr, out start))
         {
-            int daysToNextSunday = ((int)DayOfWeek.Sunday - (int)now.DayOfWeek + 7) % 7;
-            start = now.Date.AddDays(daysToNextSunday);
+            int daysToNextSunday = ((int)DayOfWeek.Sunday - (int)nowUtc.DayOfWeek + 7) % 7;
+            start = nowUtc.Date.AddDays(daysToNextSunday); // ראשון הבא 00:00
             logger.LogDebug("Start not provided/invalid. Using next Sunday {Start:yyyy-MM-dd}", start);
+        }
+        else
+        {
+            start = start.Date; // אם נתנו תאריך בלי שעה - ננרמל ל-00:00
         }
 
         DateTime end;
         if (!DateTime.TryParse(endStr, out end))
         {
-            end = start.Date.AddDays(4).AddHours(23).AddMinutes(59);
-            logger.LogDebug("End not provided/invalid. Using Thursday {End:yyyy-MM-dd HH:mm}", end);
+            end = start.Date.AddDays(5); // חמישי הבא + 1 יום -> סוף-יום בלעדי
+            logger.LogDebug("End not provided/invalid. Using Thursday end-exclusive {End:yyyy-MM-dd}", end);
         }
-
-        if (end < start)
+        else
         {
-            end = start.Date.AddDays(4).AddHours(23).AddMinutes(59);
-            logger.LogWarning("End < Start. Normalized end to Thursday {End:yyyy-MM-dd HH:mm}", end);
+            // אם הגיע תאריך בלי שעה -> נעשה end-exclusive של היום הבא
+            end = end.TimeOfDay == TimeSpan.Zero ? end.Date.AddDays(1) : end;
         }
 
-        return (start, end);
+        if (end <= start)
+        {
+            end = start.Date.AddDays(5); // end-exclusive של חמישי
+            logger.LogWarning("End <= Start. Normalized endExclusive to {End:yyyy-MM-dd}", end);
+        }
+
+        return (start, end); // שים לב: end הוא end-exclusive
     }
+
 }

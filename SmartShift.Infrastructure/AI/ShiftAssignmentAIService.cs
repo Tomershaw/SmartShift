@@ -175,9 +175,9 @@ public class ShiftAssignmentAIService : IShiftAssignmentAIService
 
     // ------------ 3) Generate shift summary (per-employee Arrival) ------------
     public async Task<string> GenerateShiftSummaryAsync(
-        Shift shift,
-        IEnumerable<(Employee Emp, EmployeeShiftAvailability Arrival)> assignedPeople,
-        CancellationToken cancellationToken = default)
+     Shift shift,
+     IEnumerable<(Employee Emp, EmployeeShiftAvailability Arrival)> assignedPeople,
+     CancellationToken cancellationToken = default)
     {
         try
         {
@@ -187,34 +187,67 @@ public class ShiftAssignmentAIService : IShiftAssignmentAIService
             var regularCount = assigned.Count(p => p.Arrival == EmployeeShiftAvailability.Regular);
             var meetsEarlyRequirement = earlyCount >= shift.MinimumEarlyEmployees;
 
+            // Convert to Israel local time
+            var israelTz = TimeZoneInfo.FindSystemTimeZoneById("Israel Standard Time");
+            var local = TimeZoneInfo.ConvertTimeFromUtc(
+                DateTime.SpecifyKind(shift.StartTime, DateTimeKind.Utc), israelTz);
+            var localDate = local.ToString("dd.MM.yyyy");
+            var localTime = local.ToString("HH:mm");
+
+            // Prepare employee data
             var assignedJson = JsonSerializer.Serialize(
                 assigned.Select(p => new
                 {
+                    Id = p.Emp.Id,
                     Name = $"{p.Emp.FirstName} {p.Emp.LastName}",
-                    p.Emp.SkillLevel,
-                    p.Emp.PriorityRating,
-                    ArrivalType = DescribeArrival(p.Arrival)
+                    SkillLevel = p.Emp.SkillLevel,
+                    PriorityRating = p.Emp.PriorityRating,
+                    MaxShiftsPerWeek = p.Emp.MaxShiftsPerWeek,
+                    ArrivalType = p.Arrival == EmployeeShiftAvailability.Early ? "Early" : "Regular",
+                    AdminNotes = p.Emp.AdminNotes,
+                    EmployeeNotes = p.Emp.EmployeeNotes
                 }),
                 new JsonSerializerOptions { WriteIndented = true });
 
+            // === Prompt in English, Output must be Hebrew ===
             var prompt = $"""
-                Create a concise Hebrew summary for this shift assignment:
+        You are an intelligent scheduling system generating a concise operational summary for a single shift.
+        The prompt is in English, but your output MUST be entirely in Hebrew.
+        Do not invent or assume data that is not explicitly provided.
 
-                Shift:
-                - Time: {shift.StartTime:yyyy-MM-dd HH:mm}
-                - Description: {shift.Description}
-                - Required: {shift.RequiredEmployeeCount} | Minimum: {shift.MinimumEmployeeCount} | Minimum Early: {shift.MinimumEarlyEmployees}
-                - Assigned: {assigned.Count} (Early: {earlyCount}, Regular: {regularCount})
-                - Meets Early Requirement: {(meetsEarlyRequirement ? "Yes" : "No")}
+        === SHIFT FACTS ===
+        - Date: {localDate}
+        - Time: {localTime}
+        - Description: {shift.Description}
+        - Required: {shift.RequiredEmployeeCount} | Minimum: {shift.MinimumEmployeeCount} | Minimum Early: {shift.MinimumEarlyEmployees}
+        - Assigned: {assigned.Count} (Early: {earlyCount}, Regular: {regularCount})
+        - Meets Minimum Early: {(meetsEarlyRequirement ? "Yes" : "No")}
+        - Skill Required: {shift.SkillLevelRequired}
 
-                Assigned Employees:
-                {assignedJson}
+        === ASSIGNED EMPLOYEES (JSON) ===
+        {assignedJson}
 
-                Provide a brief Hebrew summary focusing on staffing balance, Early/Regular distribution, and overall assignment quality.
-                """;
+        === OUTPUT REQUIREMENTS ===
+        - Output language: Hebrew only.
+        - The summary must be short, factual, and structured.
+        - Use the following exact structure:
+          1) Short title line with date, time, and general coverage status.
+          2) Staffing: one sentence describing required vs minimum vs actual assigned.
+          3) Early vs Regular: one sentence stating if Minimum Early is met and if there is any buffer.
+          4) Skills and priorities: one sentence summarizing the mix using only SkillLevel and PriorityRating fields.
+          5) One short operational insight (if relevant) about staffing balance or potential risk.
+          6) Reasons for selection: a short bullet list explaining WHY each employee was selected.
+             Each bullet must follow this format:
+               • <Name> - a concise factual reason based ONLY on: ArrivalType, fit to SkillLevelRequired,
+                 PriorityRating, MaxShiftsPerWeek (workload suitability), and any relevant AdminNotes or EmployeeNotes.
+        - Do NOT add extra sections, headers, or explanations.
+        - Keep up to 6 short sentences before the bullet list.
+        - Use 3 to 8 bullets maximum.
+        - Be professional, concise, and data-driven.
+        """;
 
             var resp = await _kernel.InvokePromptAsync(prompt, cancellationToken: cancellationToken);
-            return resp.GetValue<string>() ?? "לא ניתן להפיק תקציר";
+            return resp.GetValue<string>() ?? "No summary generated";
         }
         catch (Exception ex)
         {

@@ -1,37 +1,66 @@
+// src/App.tsx
 import { Routes, Route, Navigate } from "react-router-dom";
 import AuthPage from "./features/auth/components/AuthPage";
-import { ScheduleView } from "./features/scheduling/components/ScheduleView";
 import { ProtectedRoute } from "./features/auth/components/ProtectedRoute";
-import EmployeeSignupPlaceholder from "./features/scheduling/components/EmployeeSignupPage.tsx";
+import EmployeeSignupPage from "./features/scheduling/components/EmployeeSignupPage";
+import AdminDashboardPage from "./features/scheduling/admin/pages/AdminDashboardPage";
+import AdminShiftsPage from "./features/scheduling/admin/pages/AdminShiftsPage";
+import AdminShiftSummaryPage from "./features/scheduling/admin/pages/AdminShiftSummaryPage";
+
 import "./App.css";
 
 function App() {
   return (
     <Routes>
+      {/* הזדהות */}
       <Route path="/auth" element={<AuthPage />} />
 
-      {/* מסך ניהולי - רק Admin/Manager */}
+      {/* מנהל/מנג'ר - דף המנהל החדש */}
       <Route
-        path="/schedule"
+        path="/admin"
         element={
           <ProtectedRoute allowedRoles={["Admin", "Manager"]}>
-            <ScheduleView />
+            <AdminDashboardPage />
           </ProtectedRoute>
         }
       />
 
-      {/* דף ההרשמה לעובד */}
+      {/* עובד - דף ההרשמה */}
       <Route
         path="/employee/signup"
         element={
           <ProtectedRoute allowedRoles={["Employee"]}>
-            <EmployeeSignupPlaceholder />
+            <EmployeeSignupPage />
           </ProtectedRoute>
         }
       />
 
-      <Route path="/" element={<Navigate to="/auth" />} />
-      <Route path="*" element={<Navigate to="/auth" />} />
+      {/* ניהול משמרות - רשימה/גריד */}
+      <Route
+        path="/admin/shifts"
+        element={
+          <ProtectedRoute allowedRoles={["Admin", "Manager"]}>
+            <AdminShiftsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* ניהול משמרת - תקציר משמרת בודדת */}
+      <Route
+        path="/admin/shifts/:shiftId/summary"
+        element={
+          <ProtectedRoute allowedRoles={["Admin", "Manager"]}>
+            <AdminShiftSummaryPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* השבתת המסך הישן והפניה לחדש */}
+      <Route path="/schedule" element={<Navigate to="/admin" replace />} />
+
+      {/* ברירות מחדל */}
+      <Route path="/" element={<Navigate to="/auth" replace />} />
+      <Route path="*" element={<Navigate to="/auth" replace />} />
     </Routes>
   );
 }

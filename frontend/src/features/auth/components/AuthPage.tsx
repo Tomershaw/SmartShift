@@ -40,29 +40,22 @@ export default function AuthPage() {
   useEffect(() => {
     const checkToken = async () => {
       show("בודק התחברות...");
-      const isValid = await authService.validateToken();
-
-      if (isValid) {
-        const role = getRoleFromToken(localStorage.getItem("token"));
-        navigate(role === "Employee" ? "/employee/signup" :  "/admin", {
-          replace: true,
-        });
-        return;
+      try {
+        await authService.validateToken(); // רק בדיקה
+      } finally {
+        hide(); // הסתרת הספינר תמיד
       }
-
-      hide();
     };
-
+  
     checkToken();
+  
     document.addEventListener("visibilitychange", authService.handleTabExit);
     return () => {
-      document.removeEventListener(
-        "visibilitychange",
-        authService.handleTabExit
-      );
+      document.removeEventListener("visibilitychange", authService.handleTabExit);
       hide();
     };
-  }, [navigate, show, hide]);
+  }, [show, hide]);
+  
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

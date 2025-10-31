@@ -2,14 +2,14 @@ import { useNavigate } from "react-router-dom";
 
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
-
   const items = [
-    { key: "employees", title: "ניהול עובדים", desc: "הוספה, עריכה ורשימת עובדים", to: "/admin/employees", icon: "👥" },
+    { key: "employees", title: "ניהול עובדים", desc: "הוספה, עריכה ורשימת עובדים", to: "/admin/employees/register", icon: "👥" },
     { key: "shifts", title: "ניהול משמרות", desc: "יצירה ואישור משמרות", to: "/admin/shifts", icon: "📅" },
     { key: "registrations", title: "נרשמים", desc: "מי נרשם ולמה", to: "/admin/registrations", icon: "📝" },
     { key: "ratings", title: "דירוגים ומשובים", desc: "מתן ציון ומשוב לעובדים", to: "/admin/ratings", icon: "⭐" },
     { key: "settings", title: "הגדרות", desc: "העדפות ומדיניות", to: "/admin/settings", icon: "⚙️" },
   ];
+  
 
   return (
     <div dir="rtl" className="mx-auto max-w-6xl p-6">

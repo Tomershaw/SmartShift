@@ -18,16 +18,24 @@ public sealed class ApproveShiftEmployeesModule : ICarterModule
     }
 
     private static async Task<IResult> ApproveEmployees(
-        Guid shiftId,
-        [FromBody] ApproveShiftEmployeesRequest body,
-        IMediator mediator,
-        CancellationToken ct)
+    Guid shiftId,
+    [FromBody] ApproveShiftEmployeesRequest body,
+    IMediator mediator,
+    CancellationToken ct)
     {
         if (body == null) return Results.BadRequest("Body required");
-        if (body.ShiftId == Guid.Empty) body.ShiftId = shiftId;
-        if (body.ShiftId != shiftId) return Results.BadRequest("ShiftId mismatch");
+        if (body.EmployeeIds is null || body.EmployeeIds.Count == 0)
+            return Results.BadRequest("EmployeeIds required");
 
-        var res = await mediator.Send(new ApproveShiftEmployeesCommand { Payload = body }, ct);
-        return Results.Ok(res);
+        var cmd = new ApproveShiftEmployeesCommand
+        {
+            ShiftId = shiftId,
+            Payload = body
+        };
+
+        var res = await mediator.Send(cmd, ct);
+        return res.Success ? Results.Ok(res)
+                           : Results.Problem(title: "Approve failed", detail: res.Message, statusCode: 400);
     }
+
 }

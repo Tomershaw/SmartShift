@@ -6,6 +6,7 @@ import EmployeeSignupPage from "./features/scheduling/components/EmployeeSignupP
 import AdminDashboardPage from "./features/scheduling/admin/pages/AdminDashboardPage";
 import AdminShiftsPage from "./features/scheduling/admin/pages/AdminShiftsPage";
 import AdminShiftSummaryPage from "./features/scheduling/admin/pages/AdminShiftSummaryPage";
+import AdminRegisterEmployeePage from "./features/scheduling/admin/pages/AdminRegisterEmployeePage";
 
 import "./App.css";
 
@@ -15,7 +16,7 @@ function App() {
       {/* הזדהות */}
       <Route path="/auth" element={<AuthPage />} />
 
-      {/* מנהל/מנג'ר - דף המנהל החדש */}
+      {/* מנהל/מנג'ר - דף מנהל */}
       <Route
         path="/admin"
         element={
@@ -55,8 +56,15 @@ function App() {
         }
       />
 
-      {/* השבתת המסך הישן והפניה לחדש */}
-      <Route path="/schedule" element={<Navigate to="/admin" replace />} />
+      {/* ניהול עובדים - רישום עובד חדש */}
+      <Route
+        path="/admin/employees/register"
+        element={
+          <ProtectedRoute allowedRoles={["Admin", "Manager"]}>
+            <AdminRegisterEmployeePage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* ברירות מחדל */}
       <Route path="/" element={<Navigate to="/auth" replace />} />

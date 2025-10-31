@@ -11,5 +11,6 @@ public record CreateUserCommand : IRequest<CreateUserResult>
     public Guid TenantId { get; init; }
     public string PhoneNumber { get; init; } = string.Empty;
     public string Role { get; init; } = "Employee"; // ברירת מחדל
-    
+    public string? Gender { get; set; } = "Unknown"; // חדש
+
 }

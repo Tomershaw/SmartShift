@@ -10,21 +10,19 @@ public sealed class ApproveShiftEmployeesHandler
     private readonly IShiftRepository _repo;
     private readonly ICurrentUserService _currentUser;
 
-    public ApproveShiftEmployeesHandler(
-        IShiftRepository repo,
-        ICurrentUserService currentUser)
+    public ApproveShiftEmployeesHandler(IShiftRepository repo, ICurrentUserService currentUser)
     {
         _repo = repo;
         _currentUser = currentUser;
     }
 
-    public async Task<ApproveShiftEmployeesResult> Handle(
-        ApproveShiftEmployeesCommand req,
-        CancellationToken ct)
+    public async Task<ApproveShiftEmployeesResult> Handle(ApproveShiftEmployeesCommand req, CancellationToken ct)
     {
         var p = req.Payload;
 
-        if (p.EmployeeIds == null || p.EmployeeIds.Count == 0)
+        // שינוי 1 - איחוד ובדיקה מוקדמת
+        var employeeIds = p.EmployeeIds?.Distinct().ToList() ?? new List<Guid>();
+        if (employeeIds.Count == 0)
         {
             return new ApproveShiftEmployeesResult
             {
@@ -40,39 +38,29 @@ public sealed class ApproveShiftEmployeesHandler
         var tenantId = _currentUser.GetTenantId();
         var reviewerId = Guid.Parse(_currentUser.GetUserId());
 
-        // כל מי ש-Pending במשמרת
-        var pendings = await _repo.GetPendingRegistrationsAsync(tenantId, p.ShiftId, ct);
+        // שינוי 2 - שימוש ב־req.ShiftId במקום p.ShiftId
+        var pendings = await _repo.GetPendingRegistrationsAsync(tenantId, req.ShiftId, ct);
         var byEmp = pendings.ToDictionary(r => r.EmployeeId, r => r);
-        var requestedSet = p.EmployeeIds.Distinct().ToHashSet();
         var pendingIds = pendings.Select(r => r.EmployeeId).ToHashSet();
 
-        // התבקשו אבל בכלל לא Pending כרגע (או שאינם רשומים למשמרת הזו)
-        var requestedButNotPending = requestedSet.Except(pendingIds).ToList();
+        var requestedButNotPending = employeeIds.Where(id => !pendingIds.Contains(id)).ToList();
 
-        // מאשרים רק את מי שב-Pending + נמצא ב-Request
         var approvedIds = new List<Guid>();
-        foreach (var empId in requestedSet)
+        foreach (var empId in employeeIds)
         {
-            if (!byEmp.TryGetValue(empId, out var reg))
-                continue;
+            if (!byEmp.TryGetValue(empId, out var reg)) continue;
 
-            var ok = await _repo.ApproveShiftRegistrationAsync(
-                reg.Id,
-                reviewerId,
-                comment: null,
-                tenantId,
-                ct);
-                
+            var ok = await _repo.ApproveShiftRegistrationAsync(reg.Id, reviewerId, comment: null, tenantId, ct);
             if (ok) approvedIds.Add(empId);
         }
 
-        // בדיקת מצב אחרי האישור
-        var pendingsAfter = await _repo.GetPendingRegistrationsAsync(tenantId, p.ShiftId, ct);
+        // שינוי 3 - גם כאן req.ShiftId
+        var pendingsAfter = await _repo.GetPendingRegistrationsAsync(tenantId, req.ShiftId, ct);
         var pendingsAfterSet = pendingsAfter.Select(r => r.EmployeeId).ToHashSet();
 
-        var stillPendingAfterApprove = requestedSet.Intersect(pendingsAfterSet).ToList();
+        var stillPendingAfterApprove = employeeIds.Where(id => pendingsAfterSet.Contains(id)).ToList();
 
-        var approvedActually = requestedSet.Count
+        var approvedActually = employeeIds.Count
                                - stillPendingAfterApprove.Count
                                - requestedButNotPending.Count;
 
@@ -89,3 +77,4 @@ public sealed class ApproveShiftEmployeesHandler
         };
     }
 }
+

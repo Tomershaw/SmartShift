@@ -19,6 +19,9 @@ public class CreateUserRequest
     public string Role { get; set; } = string.Empty;
     [Required]
     public string PhoneNumber { get; set; } = string.Empty;
+    [Required]
+    public string? Gender { get; set; } = "Unknown"; // ηγω
+
 
 
 }

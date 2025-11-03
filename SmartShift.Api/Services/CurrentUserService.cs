@@ -18,8 +18,7 @@ namespace SmartShift.Api.Services
                 ?? throw new UnauthorizedAccessException("User ID not found.");
         }
 
-
-        public Guid GetTenantId()
+            public Guid GetTenantId()
         {
             var tenantIdStr = _httpContextAccessor.HttpContext?.User?.FindFirst("tenantId")?.Value;
 

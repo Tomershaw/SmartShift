@@ -30,7 +30,7 @@ export default function AdminRegisterEmployeePage() {
     phoneNumber: "",
     password: "",
     role: "Employee",
-    gender: "Unknown", // חדש
+    gender: "Unknown",
   });
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -56,7 +56,7 @@ export default function AdminRegisterEmployeePage() {
         password: form.password,
         phoneNumber: form.phoneNumber,
         role: form.role,
-        gender: form.gender, // חדש
+        gender: form.gender,
       });
 
       if (res.data?.success) {
@@ -77,10 +77,12 @@ export default function AdminRegisterEmployeePage() {
         setMsg({ ok: false, text });
       }
     } catch (err: unknown) {
-      const resp = (err as {
-        config?: { url?: string };
-        response?: { status?: number; data?: unknown };
-      }).response;
+      const resp = (
+        err as {
+          config?: { url?: string };
+          response?: { status?: number; data?: unknown };
+        }
+      ).response;
 
       const data = resp?.data as ApiError | undefined;
       const text = friendlyError(data);
@@ -91,43 +93,46 @@ export default function AdminRegisterEmployeePage() {
       });
 
       setMsg({ ok: false, text });
-      setRawError(JSON.stringify({ status: resp?.status, data: resp?.data }, null, 2));
+      setRawError(
+        JSON.stringify({ status: resp?.status, data: resp?.data }, null, 2)
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div dir="rtl" className="mx-auto max-w-5xl p-6">
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <nav className="text-xs text-slate-500">
-            <Link to="/admin" className="hover:text-slate-700">
-              מרכז ניהול
-            </Link>
-            <span className="mx-1">/</span>
-            <span className="text-slate-700">רישום עובד חדש</span>
-          </nav>
-          <h1 className="mt-2 text-2xl font-extrabold text-slate-900">
-            רישום עובד חדש
-          </h1>
-          <p className="text-slate-600 text-sm mt-1">
-            מלא את הפרטים. המערכת תקשר את העובד ל-tenant של המנהל אוטומטית.
-          </p>
+    <div dir="rtl" className="min-h-screen p-6 flex flex-col items-center">
+      {/* עוטף את כל התוכן ברוחב נוח ובמרכז */}
+      <div className="w-full max-w-2xl">
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <nav className="text-xs text-slate-500">
+              <Link to="/admin" className="hover:text-slate-700">
+                מרכז ניהול
+              </Link>
+              <span className="mx-1">/</span>
+              <span className="text-slate-700">רישום עובד חדש</span>
+            </nav>
+            <h1 className="mt-2 text-2xl font-extrabold text-slate-900">
+              רישום עובד חדש
+            </h1>
+            <p className="text-slate-600 text-sm mt-1">
+              מלא את הפרטים. המערכת תקשר את העובד ל-tenant של המנהל אוטומטית.
+            </p>
+          </div>
+
+          <button
+            onClick={() => navigate(-1)}
+            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:shadow"
+          >
+            ← חזרה
+          </button>
         </div>
 
-        <button
-          onClick={() => navigate(-1)}
-          className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:shadow"
-        >
-          ← חזרה
-        </button>
-      </div>
-
-      {/* Content Card */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <section className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        {/* כרטיס תוכן ממורכז */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           {/* Alert */}
           {msg && (
             <div
@@ -171,7 +176,7 @@ export default function AdminRegisterEmployeePage() {
               </div>
             </Field>
 
-            {/* Email and Phone - two columns */}
+            {/* Email and Phone */}
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <Field label="אימייל" htmlFor="email" required>
                 <div className="relative">
@@ -274,28 +279,23 @@ export default function AdminRegisterEmployeePage() {
 
               <Link
                 to="/admin"
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm hover:shadow"
+                className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium
+                           text-sky-800 hover:bg-sky-100 hover:border-sky-300 shadow-sm transition
+                           focus:outline-none focus:ring-2 focus:ring-sky-300"
               >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  className="opacity-80"
+                >
+                  <path fill="currentColor" d="M10 19l-7-7l7-7v4h8v6h-8v4z" />
+                </svg>
                 חזרה למרכז ניהול
               </Link>
             </div>
           </form>
         </section>
-
-        {/* Side panel */}
-        <aside className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-900">טיפים מהירים</h3>
-          <ul className="mt-3 list-disc pe-4 space-y-2 text-sm text-slate-600">
-            <li>תפקיד ברירת מחדל הוא Employee.</li>
-            <li>Tenant משויך אוטומטית מהטוקן של המנהל.</li>
-            <li>אימות סיסמה מתבצע בצד השרת לפי מדיניות ה-Identity.</li>
-            <li>מומלץ ליידע את העובד להחליף סיסמה לאחר הכניסה הראשונה.</li>
-          </ul>
-
-          <div className="mt-5 rounded-xl bg-slate-50 p-4 text-xs text-slate-600">
-            במידה ומתקבלת שגיאת הרשאות או 401, בדוק שהמשתמש שלך מחזיק תפקיד Admin או Manager ושיש token תקף.
-          </div>
-        </aside>
       </div>
     </div>
   );
@@ -315,10 +315,13 @@ function Field(props: {
         htmlFor={props.htmlFor}
         className="mb-1 block text-sm font-medium text-slate-700"
       >
-        {props.label} {props.required && <span className="text-red-600">*</span>}
+        {props.label}{" "}
+        {props.required && <span className="text-red-600">*</span>}
       </label>
       {props.children}
-      {props.hint && <p className="mt-1 text-xs text-slate-500">{props.hint}</p>}
+      {props.hint && (
+        <p className="mt-1 text-xs text-slate-500">{props.hint}</p>
+      )}
     </div>
   );
 }

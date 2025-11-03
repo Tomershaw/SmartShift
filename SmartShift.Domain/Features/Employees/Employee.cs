@@ -29,7 +29,6 @@ public class Employee
 
     public string Name => $"{FirstName} {LastName}";
 
-    // תוספות חדשות
     public int SkillLevel { get; private set; } // רמת מיומנות
     public int MaxShiftsPerWeek { get; private set; } // מספר משמרות מקסימלי בשבוע
     public string AdminNotes { get; private set; } = string.Empty; // הערות על העובד

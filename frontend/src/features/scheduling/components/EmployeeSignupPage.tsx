@@ -74,15 +74,15 @@ function ilDateTime(d: Date): string {
 
 // חלון ייצור: פתיחה רביעי 00:00, סגירה שישי 12:00 לפי Asia/Jerusalem
 function getSubmissionWindow(now = new Date()) {
-  const sunday = ilStartOfSunday(now);     // ראשון של השבוע הנוכחי
+  const sunday = ilStartOfSunday(now); // ראשון של השבוע הנוכחי
   const wednesday = addUTCDays(sunday, 3); // רביעי 00:00
-  const friday = addUTCDays(sunday, 5);    // שישי 00:00
+  const friday = addUTCDays(sunday, 5); // שישי 00:00
 
   const start = new Date(wednesday);
   start.setUTCHours(0, 0, 0, 0);
 
   const end = new Date(friday);
-  end.setUTCHours(12, 0, 0, 0);            // סגירה ב-12:00
+  end.setUTCHours(12, 0, 0, 0); // סגירה ב-12:00
   return { start, end };
 }
 
@@ -91,9 +91,15 @@ function formatCountdown(ms: number) {
   if (ms <= 0) return "00:00:00";
   const secs = Math.floor(ms / 1000);
   const days = Math.floor(secs / 86400);
-  const hh = Math.floor((secs % 86400) / 3600).toString().padStart(2, "0");
-  const mm = Math.floor((secs % 3600) / 60).toString().padStart(2, "0");
-  const ss = Math.floor(secs % 60).toString().padStart(2, "0");
+  const hh = Math.floor((secs % 86400) / 3600)
+    .toString()
+    .padStart(2, "0");
+  const mm = Math.floor((secs % 3600) / 60)
+    .toString()
+    .padStart(2, "0");
+  const ss = Math.floor(secs % 60)
+    .toString()
+    .padStart(2, "0");
   return days > 0 ? `${days} ימים ${hh}:${mm}:${ss}` : `${hh}:${mm}:${ss}`;
 }
 
@@ -126,11 +132,16 @@ export default function EmployeeSignupPage() {
 
   // שבוע הבא - ראשון עד חמישי
   const [weekStart] = useState<Date>(ilNextSunday);
-  const days = useMemo(() => Array.from({ length: 5 }, (_, i) => addUTCDays(weekStart, i)), [weekStart]);
+  const days = useMemo(
+    () => Array.from({ length: 5 }, (_, i) => addUTCDays(weekStart, i)),
+    [weekStart]
+  );
   const isoDays = useMemo(() => days.map(d => ilISO(d)), [days]);
 
   // בחירות ליום
-  const [localState, setLocalState] = useState<Record<DayISO, ShiftChoice | null>>({});
+  const [localState, setLocalState] = useState<
+    Record<DayISO, ShiftChoice | null>
+  >({});
 
   // מיפוי iso -> shiftId
   const [shiftIdByIso, setShiftIdByIso] = useState<Record<string, string>>({});
@@ -144,7 +155,9 @@ export default function EmployeeSignupPage() {
   const [dayStatus, setDayStatus] = useState<Record<DayISO, DayStatus>>({});
 
   // סטטוס אישי שלי לכל יום: 0 Pending, 1 Approved, 2 Rejected, 3 Cancelled
-  const [myStatusByIso, setMyStatusByIso] = useState<Record<string, 0 | 1 | 2 | 3>>({});
+  const [myStatusByIso, setMyStatusByIso] = useState<
+    Record<string, 0 | 1 | 2 | 3>
+  >({});
 
   // שליחה
   const [submitting, setSubmitting] = useState(false);
@@ -173,7 +186,9 @@ export default function EmployeeSignupPage() {
   const withinWindow = now >= submitStart && now < submitEnd;
   const afterWindow = now >= submitEnd;
   const countdownTarget = beforeWindow ? submitStart : submitEnd;
-  const countdownText = formatCountdown(countdownTarget.getTime() - now.getTime());
+  const countdownText = formatCountdown(
+    countdownTarget.getTime() - now.getTime()
+  );
 
   /* ===== Loader control ===== */
   useEffect(() => {
@@ -185,7 +200,9 @@ export default function EmployeeSignupPage() {
   /* ===== Reset when week changes ===== */
   useEffect(() => {
     setLocalState({});
-    setDayStatus(Object.fromEntries(isoDays.map(iso => [iso, "loading"] as const)));
+    setDayStatus(
+      Object.fromEntries(isoDays.map(iso => [iso, "loading"] as const))
+    );
     setShiftsLoaded(false);
     setRegistrationsLoaded(false);
     setShiftIdByIso({});
@@ -220,39 +237,42 @@ export default function EmployeeSignupPage() {
         }
       }
     })();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [user, weekStart]);
 
   /* ===== Load my registrations and set locks/status ===== */
   useEffect(() => {
     if (!user || !shiftsLoaded) return;
     let active = true;
-  
+
     (async () => {
       try {
         const startIso = ilISO(weekStart);
         const endIso = ilISO(addUTCDays(weekStart, 5));
-  
+
         const regs = await schedulingApi.getMyRegistrations(startIso, endIso);
         if (!active) return;
-  
+
         const statusMap: Record<string, 0 | 1 | 2 | 3> = {};
         const locked = new Set<string>();
-  
+
         for (const r of regs) {
           if (r.shiftDate) {
             statusMap[r.shiftDate] = r.status;
             if (r.status === 0 || r.status === 1) locked.add(r.shiftDate); // Pending/Approved נועל
           }
         }
-  
+
         setMyStatusByIso(statusMap);
-  
+
         // עדכן כל יום ל-idle אלא אם נעול
         const next: Record<string, DayStatus> = {};
-        for (const iso of isoDays) next[iso] = locked.has(iso) ? "pending" : "idle";
+        for (const iso of isoDays)
+          next[iso] = locked.has(iso) ? "pending" : "idle";
         setDayStatus(next);
-  
+
         // נקה בחירה מקומית לימים שננעלו
         setLocalState(prev => {
           const copy = { ...prev };
@@ -263,7 +283,9 @@ export default function EmployeeSignupPage() {
         console.error("getMyRegistrations failed", err);
         if (active) {
           // אל תחזיר ל-"loading" - זה נתקע. סמן "error" כדי לאפשר כפתורים.
-          const errState = Object.fromEntries(isoDays.map(iso => [iso, "error"] as const));
+          const errState = Object.fromEntries(
+            isoDays.map(iso => [iso, "error"] as const)
+          );
           setDayStatus(errState);
           setSubmitMsg("שגיאה בטעינת ההרשמות");
         }
@@ -271,10 +293,11 @@ export default function EmployeeSignupPage() {
         if (active) setRegistrationsLoaded(true);
       }
     })();
-  
-    return () => { active = false; };
+
+    return () => {
+      active = false;
+    };
   }, [user, weekStart, shiftsLoaded, isoDays]);
-  
 
   /* ===== Draft requests ===== */
   type DraftItem = { iso: string; payload: RegisterForShiftRequest };
@@ -284,41 +307,57 @@ export default function EmployeeSignupPage() {
       if (!choice) continue;
       const shiftId = shiftIdByIso[iso];
       if (!shiftId) continue;
-      drafts.push({ iso, payload: { shiftId, shiftArrivalType: choice === "early" ? 2 : 1 } });
+      drafts.push({
+        iso,
+        payload: { shiftId, shiftArrivalType: choice === "early" ? 2 : 1 },
+      });
     }
     return drafts;
   }, [localState, shiftIdByIso]);
 
   function select(day: DayISO, type: ShiftChoice) {
-    setLocalState(prev => ({ ...prev, [day]: prev[day] === type ? null : type }));
+    setLocalState(prev => ({
+      ...prev,
+      [day]: prev[day] === type ? null : type,
+    }));
   }
-  function resetSelections() { setLocalState({}); }
+  function resetSelections() {
+    setLocalState({});
+  }
 
   async function handleRegister() {
     if (afterWindow || beforeWindow) {
       setSubmitMsg(beforeWindow ? "ההרשמה עוד לא נפתחה" : "ההרשמה נסגרה");
       return;
     }
-    if (draftRequests.length === 0) { setSubmitMsg("לא נבחרו משמרות"); return; }
+    if (draftRequests.length === 0) {
+      setSubmitMsg("לא נבחרו משמרות");
+      return;
+    }
 
-    setSubmitting(true); setSubmitMsg(null);
+    setSubmitting(true);
+    setSubmitMsg(null);
     try {
-      const outcomes = await Promise.all(draftRequests.map(async ({ iso, payload }) => {
-        try {
-          const res = await schedulingApi.registerForShift(payload);
-          setDayStatus(p => ({ ...p, [iso]: "pending" }));
-          setMyStatusByIso(p => ({ ...p, [iso]: 0 })); // Pending
-          setLocalState(p => ({ ...p, [iso]: null }));
-          return { ok: true, msg: res.message };
-        } catch {
-          setDayStatus(p => ({ ...p, [iso]: "error" }));
-          return { ok: false };
-        }
-      }));
+      const outcomes = await Promise.all(
+        draftRequests.map(async ({ iso, payload }) => {
+          try {
+            const res = await schedulingApi.registerForShift(payload);
+            setDayStatus(p => ({ ...p, [iso]: "pending" }));
+            setMyStatusByIso(p => ({ ...p, [iso]: 0 })); // Pending
+            setLocalState(p => ({ ...p, [iso]: null }));
+            return { ok: true, msg: res.message };
+          } catch {
+            setDayStatus(p => ({ ...p, [iso]: "error" }));
+            return { ok: false };
+          }
+        })
+      );
       const ok = outcomes.filter(o => o.ok).length;
       const fail = outcomes.length - ok;
       setSubmitMsg(`נשלחו ${ok} בקשות בהצלחה, ${fail} נכשלו`);
-    } finally { setSubmitting(false); }
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   /* ===== Cancel my registration for a day ===== */
@@ -359,7 +398,8 @@ export default function EmployeeSignupPage() {
               הרשמה למשמרות - עובדים
             </h1>
             <p className="text-slate-600">
-              שלום <span className="font-semibold">{user?.email}</span>, ההרשמה מוצגת לשבוע הבא בלבד
+              שלום <span className="font-semibold">{user?.email}</span>, ההרשמה
+              מוצגת לשבוע הבא בלבד
             </p>
             <div className="mt-2 rounded-xl border border-slate-200 bg-white px-4 py-1.5 text-sm text-slate-700">
               {ilLong(days[0])} - {ilLong(days[4])}
@@ -368,14 +408,32 @@ export default function EmployeeSignupPage() {
             {/* טיימר חלון הגשה */}
             <div
               className={`mt-2 px-3 py-1.5 rounded-full text-xs sm:text-sm border
-                ${withinWindow ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-                                : beforeWindow ? "border-sky-300 bg-sky-50 text-sky-800"
-                                                : "border-rose-300 bg-rose-50 text-rose-800"}`}
+                ${
+                  withinWindow
+                    ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                    : beforeWindow
+                    ? "border-sky-300 bg-sky-50 text-sky-800"
+                    : "border-rose-300 bg-rose-50 text-rose-800"
+                }`}
               title={`סגירה: ${ilDateTime(submitEnd)}`}
             >
-              {beforeWindow && <>ההרשמה תיפתח בעוד: <span className="font-semibold">{countdownText}</span> • פתיחה: {ilDateTime(submitStart)}</>}
-              {withinWindow && <>נשאר זמן להגשה: <span className="font-semibold">{countdownText}</span> • סגירה: {ilDateTime(submitEnd)}</>}
-              {afterWindow && <>ההרשמה נסגרה • סגירה: {ilDateTime(submitEnd)}</>}
+              {beforeWindow && (
+                <>
+                  ההרשמה תיפתח בעוד:{" "}
+                  <span className="font-semibold">{countdownText}</span> •
+                  פתיחה: {ilDateTime(submitStart)}
+                </>
+              )}
+              {withinWindow && (
+                <>
+                  נשאר זמן להגשה:{" "}
+                  <span className="font-semibold">{countdownText}</span> •
+                  סגירה: {ilDateTime(submitEnd)}
+                </>
+              )}
+              {afterWindow && (
+                <>ההרשמה נסגרה • סגירה: {ilDateTime(submitEnd)}</>
+              )}
             </div>
 
             {!!loadError && (
@@ -395,8 +453,8 @@ export default function EmployeeSignupPage() {
           const sel = localState[iso];
           const hasShiftId = Boolean(shiftIdByIso[iso]);
 
-          const status = dayStatus[iso] ?? "loading";  // "idle" | "pending" | "error" | "loading"
-          const myStatus = myStatusByIso[iso];         // 0..3
+          const status = dayStatus[iso] ?? "loading"; // "idle" | "pending" | "error" | "loading"
+          const myStatus = myStatusByIso[iso]; // 0..3
 
           // בוליאנים ברורים - פותרים TS2367
           const isPending = status === "pending";
@@ -406,7 +464,13 @@ export default function EmployeeSignupPage() {
 
           // כפתורי בחירה פעילים רק כשיש משמרת, היום פנוי להצגה, ואנחנו בחלון
           const buttonsEnabled = hasShiftId && isIdleOrError && withinWindow;
-          console.log({ iso, dayStatus: dayStatus[iso], myStatus: myStatusByIso[iso], withinWindow, hasShiftId: !!shiftIdByIso[iso] });
+          console.log({
+            iso,
+            dayStatus: dayStatus[iso],
+            myStatus: myStatusByIso[iso],
+            withinWindow,
+            hasShiftId: !!shiftIdByIso[iso],
+          });
 
           return (
             <article
@@ -419,10 +483,18 @@ export default function EmployeeSignupPage() {
             >
               <header className="mb-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500">{ilWeekdayShort(d)}</span>
-                  {!hasShiftId && <span className="text-[10px] text-red-500">אין משמרת ליום זה</span>}
+                  <span className="text-xs text-slate-500">
+                    {ilWeekdayShort(d)}
+                  </span>
+                  {!hasShiftId && (
+                    <span className="text-[10px] text-red-500">
+                      אין משמרת ליום זה
+                    </span>
+                  )}
                 </div>
-                <div className="mt-1 text-lg font-semibold text-slate-800">{display}</div>
+                <div className="mt-1 text-lg font-semibold text-slate-800">
+                  {display}
+                </div>
 
                 {canCancel && (
                   <div className="mt-2 flex items-center gap-2">
@@ -464,9 +536,7 @@ export default function EmployeeSignupPage() {
                 )}
 
                 {isLoading && (
-                  <div className="mt-2 text-[11px] text-slate-500">
-                    טוען...
-                  </div>
+                  <div className="mt-2 text-[11px] text-slate-500">טוען...</div>
                 )}
               </header>
 
@@ -475,26 +545,38 @@ export default function EmployeeSignupPage() {
                   onClick={() => select(iso, "early")}
                   disabled={!buttonsEnabled}
                   className={`group rounded-xl border px-4 py-3 text-sm font-medium transition flex items-center justify-between
-                    ${sel === "early"
-                      ? "border-emerald-400 bg-white ring-2 ring-emerald-300"
-                      : "border-slate-300 bg-slate-50 hover:bg-white"}
+                    ${
+                      sel === "early"
+                        ? "border-emerald-400 bg-white ring-2 ring-emerald-300"
+                        : "border-slate-300 bg-slate-50 hover:bg-white"
+                    }
                     ${!buttonsEnabled ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   <span>Early</span>
-                  {sel === "early" ? <Check className="h-4 w-4" aria-hidden /> : <span className="text-[10px] text-slate-400">בחר</span>}
+                  {sel === "early" ? (
+                    <Check className="h-4 w-4" aria-hidden />
+                  ) : (
+                    <span className="text-[10px] text-slate-400">בחר</span>
+                  )}
                 </button>
 
                 <button
                   onClick={() => select(iso, "regular")}
                   disabled={!buttonsEnabled}
                   className={`group rounded-xl border px-4 py-3 text-sm font-medium transition flex items-center justify-between
-                    ${sel === "regular"
-                      ? "border-sky-400 bg-white ring-2 ring-sky-300"
-                      : "border-slate-300 bg-slate-50 hover:bg-white"}
+                    ${
+                      sel === "regular"
+                        ? "border-sky-400 bg-white ring-2 ring-sky-300"
+                        : "border-slate-300 bg-slate-50 hover:bg-white"
+                    }
                     ${!buttonsEnabled ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   <span>Regular</span>
-                  {sel === "regular" ? <Check className="h-4 w-4" aria-hidden /> : <span className="text-[10px] text-slate-400">בחר</span>}
+                  {sel === "regular" ? (
+                    <Check className="h-4 w-4" aria-hidden />
+                  ) : (
+                    <span className="text-[10px] text-slate-400">בחר</span>
+                  )}
                 </button>
               </div>
             </article>
@@ -524,8 +606,22 @@ export default function EmployeeSignupPage() {
         </button>
         <button
           onClick={logout}
-          className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition"
+          className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium
+               text-red-800 hover:bg-red-100 hover:border-red-300 shadow-sm transition
+               focus:outline-none focus:ring-2 focus:ring-red-300"
+          aria-label="התנתק"
         >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            className="opacity-80"
+          >
+            <path
+              fill="currentColor"
+              d="M16 17v-2H8V9h8V7l4 4l-4 4ZM4 5h8V3H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8v-2H4V5Z"
+            />
+          </svg>
           התנתק
         </button>
       </div>

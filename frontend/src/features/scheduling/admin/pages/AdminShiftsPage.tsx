@@ -198,49 +198,49 @@ export default function AdminShiftsPage() {
       alert("אין נתונים לאישור. צור משמרות קודם.");
       return;
     }
-  
+
     const approvals = buildApprovalsFromGrid(grid, processed);
     if (approvals.length === 0) {
       alert("אין עובדים מאוכלסים לאישור.");
       return;
     }
-  
+
     console.log("approvals to send:", approvals);
-  
+
     show("מאשר שיבוצים...");
     setConfirming(true);
     try {
       let totalApproved = 0;
-  
+
       for (const a of approvals) {
         const requestedIds = a.employeeIds;
         console.log("→ sending approve payload", {
           shiftId: a.shiftId,
           requestedCount: requestedIds.length,
-          requestedIds
+          requestedIds,
         });
-  
+
         const res = await adminSchedulingApi.approveShiftEmployees(
           a.shiftId,
           requestedIds
         );
-  
+
         // 🔎 לוג השוואה פר־Shift
         console.log("← approve result", {
           shiftId: a.shiftId,
           approvedCount: res.approvedCount,
-          requestedCount: requestedIds.length
+          requestedCount: requestedIds.length,
         });
-  
+
         if (res.approvedCount !== requestedIds.length) {
           console.warn(
             `Mismatch on shift ${a.shiftId}: requested ${requestedIds.length}, approved ${res.approvedCount}`
           );
         }
-  
+
         totalApproved += res.approvedCount;
       }
-  
+
       console.log("✅ total approved", totalApproved);
       alert(`הצלחה. אושרו ${totalApproved} הרשמות Pending.`);
     } catch (e) {
@@ -251,7 +251,6 @@ export default function AdminShiftsPage() {
       hide();
     }
   }
-  
 
   // קיבוץ פריטי השרת לפי יום ישראלי (לכפתור-כרטיס מתחת לכל יום)
   const processedByDay = useMemo(() => {
@@ -314,6 +313,23 @@ export default function AdminShiftsPage() {
           >
             {confirming ? "מאשר..." : "אשר סופית"}
           </button>
+
+          <Link
+            to="/admin"
+            className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium
+                     text-sky-800 hover:bg-sky-100 hover:border-sky-300 shadow-sm transition
+                     focus:outline-none focus:ring-2 focus:ring-sky-300"
+          >
+            <svg
+              width="16"  
+              height="16"
+              viewBox="0 0 24 24"
+              className="opacity-80"
+            >
+              <path fill="currentColor" d="M10 19l-7-7l7-7v4h8v6h-8v4z" />
+            </svg>
+            חזרה למרכז ניהול
+          </Link>
         </div>
       </header>
 

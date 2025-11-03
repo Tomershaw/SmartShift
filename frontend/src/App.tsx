@@ -7,6 +7,8 @@ import AdminDashboardPage from "./features/scheduling/admin/pages/AdminDashboard
 import AdminShiftsPage from "./features/scheduling/admin/pages/AdminShiftsPage";
 import AdminShiftSummaryPage from "./features/scheduling/admin/pages/AdminShiftSummaryPage";
 import AdminRegisterEmployeePage from "./features/scheduling/admin/pages/AdminRegisterEmployeePage";
+import AdminEmployeesPage from "./features/scheduling/admin/pages/ratings/pages/AdminEmployeesPage";
+import AdminEmployeeParametersPage from "./features/scheduling/admin/pages/ratings/pages/AdminEmployeeParametersPage";
 
 import "./App.css";
 
@@ -62,6 +64,22 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={["Admin", "Manager"]}>
             <AdminRegisterEmployeePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/ratings"
+        element={
+          <ProtectedRoute allowedRoles={["Admin", "Manager"]}>
+            <AdminEmployeesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/employees/:employeeId/parameters"
+        element={
+          <ProtectedRoute allowedRoles={["Admin", "Manager"]}>
+            <AdminEmployeeParametersPage />
           </ProtectedRoute>
         }
       />

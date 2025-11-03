@@ -20,7 +20,7 @@ public class CreateUserRequest
     [Required]
     public string PhoneNumber { get; set; } = string.Empty;
     [Required]
-    public string? Gender { get; set; } = "Unknown"; // ηγω
+    public string Gender { get; set; } = "Unknown"; 
 
 
 

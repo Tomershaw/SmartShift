@@ -935,6 +935,28 @@ public class ShiftRepository : IShiftRepository
         }
     }
 
+    public async Task<bool> ExistsShiftOnDateAsync(
+    Guid tenantId,
+    DateTime startTimeUtc,
+    CancellationToken cancellationToken = default)
+    {
+        if (tenantId == Guid.Empty)
+            throw new ArgumentException("Tenant ID cannot be empty", nameof(tenantId));
+
+        if (startTimeUtc == default)
+            throw new ArgumentException("Start time cannot be default", nameof(startTimeUtc));
+
+        var dayStart = startTimeUtc.Date;
+        var dayEnd = dayStart.AddDays(1);
+
+        return await _context.Shifts.AnyAsync(
+            s => s.TenantId == tenantId
+              && s.StartTime >= dayStart
+              && s.StartTime < dayEnd,
+            cancellationToken);
+    }
+
+
 
 
 

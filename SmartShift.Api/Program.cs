@@ -5,23 +5,23 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using SmartShift.Api.Middleware;
+using SmartShift.Api.Services;
 using SmartShift.Application;
 using SmartShift.Application.Common.Behaviors;
+using SmartShift.Application.Common.Interfaces;
+using SmartShift.Application.Features.Scheduling.RegisterForShift;
+using SmartShift.Application.Features.UserManagement.CreateUser;
+using SmartShift.Domain.Data;
+using SmartShift.Domain.Services;
+using SmartShift.Infrastructure.AI;
 using SmartShift.Infrastructure.Authentication;
 using SmartShift.Infrastructure.Data;
 using SmartShift.Infrastructure.Repositories;
 using System.Reflection;
-using System.Text;
-using Microsoft.OpenApi.Models;
 using System.Security.Claims;
-using SmartShift.Api.Middleware;
-using SmartShift.Domain.Data;
-using SmartShift.Application.Features.UserManagement.CreateUser;
-using SmartShift.Application.Common.Interfaces;
-using SmartShift.Api.Services;
-using SmartShift.Application.Features.Scheduling.RegisterForShift;
-using SmartShift.Domain.Services; // ✅ חובה ל-MediatR
-using SmartShift.Infrastructure.AI; // ✅ הוסף את זה
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -95,17 +95,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             OnMessageReceived = context =>
             {
                 var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogInformation("?? Raw Token Received: {Token}", context.Token);
+                logger.LogInformation("📨 Raw Token Received: {Token}", context.Token);
                 return Task.CompletedTask;
             },
             OnTokenValidated = context =>
             {
                 var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogInformation("? Token Successfully Validated");
+                logger.LogInformation("✅ Token Successfully Validated");
 
                 foreach (var claim in context.Principal!.Claims)
                 {
-                    logger.LogInformation("?? Claim Type: {Type}, Value: {Value}", claim.Type, claim.Value);
+                    logger.LogInformation("🔑 Claim Type: {Type}, Value: {Value}", claim.Type, claim.Value);
                 }
 
                 return Task.CompletedTask;
@@ -113,7 +113,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             OnAuthenticationFailed = context =>
             {
                 var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-                logger.LogError(context.Exception, "? Authentication Failed");
+                logger.LogError(context.Exception, "❌ Authentication Failed");
                 return Task.CompletedTask;
             },
             OnChallenge = context =>
@@ -152,22 +152,24 @@ builder.Services.AddCors(options =>
 // ✅ Application Services
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 builder.Services.AddScoped<IUserRegistrationService, UserRegistrationService>();
-builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();  
+builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
 builder.Services.AddScoped<IShiftRepository, ShiftRepository>();
 builder.Services.AddScoped<RefreshTokenService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
-builder.Services.AddScoped<EmployeeShiftMatchingService>(); // רישום השירות החדש
+builder.Services.AddScoped<EmployeeShiftMatchingService>();
 builder.Services.AddScoped<ShiftScoringService>();
-// ✅ הוסף את השורות הבאות:
+
+
+// ✅ AI Services
 builder.Services.AddSemanticKernel(builder.Configuration);
 builder.Services.AddScoped<IShiftAssignmentAIService, ShiftAssignmentAIService>();
-// ✅ MediatR - כולל רישום נכון
 
+// ✅ MediatR
 builder.Services.AddMediatR(cfg =>
 {
     cfg.RegisterServicesFromAssembly(typeof(SmartShift.Application.DependencyInjection).Assembly);
-    cfg.RegisterServicesFromAssembly(typeof(RegisterForShiftCommandHandler).Assembly); // ✅ זו השורה החשובה
+    cfg.RegisterServicesFromAssembly(typeof(RegisterForShiftCommandHandler).Assembly);
 });
 
 // ✅ FluentValidation

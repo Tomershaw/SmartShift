@@ -9,6 +9,8 @@ import AdminShiftSummaryPage from "./features/scheduling/admin/pages/AdminShiftS
 import AdminRegisterEmployeePage from "./features/scheduling/admin/pages/AdminRegisterEmployeePage";
 import AdminEmployeesPage from "./features/scheduling/admin/pages/ratings/pages/AdminEmployeesPage";
 import AdminEmployeeParametersPage from "./features/scheduling/admin/pages/ratings/pages/AdminEmployeeParametersPage";
+import AdminCreateShiftPage from "./features/scheduling/admin/pages/AdminCreateShiftPage";
+import AdminCreateWeekPage from "./features/scheduling/admin/pages/AdminCreateWeekPage";
 
 import "./App.css";
 
@@ -80,6 +82,25 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={["Admin", "Manager"]}>
             <AdminEmployeeParametersPage />
+          </ProtectedRoute>
+        }
+      />
+      {/* יצירת משמרת בודדת */}
+      <Route
+        path="/admin/shifts/create"
+        element={
+          <ProtectedRoute allowedRoles={["Admin", "Manager"]}>
+            <AdminCreateShiftPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* יצירת שבוע (ראשון–חמישי) */}
+      <Route
+        path="/admin/shifts/create-week"
+        element={
+          <ProtectedRoute allowedRoles={["Admin", "Manager"]}>
+            <AdminCreateWeekPage />
           </ProtectedRoute>
         }
       />

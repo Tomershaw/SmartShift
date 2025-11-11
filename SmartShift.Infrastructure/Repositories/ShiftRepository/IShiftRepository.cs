@@ -45,5 +45,7 @@ public interface IShiftRepository
     Task<bool> CancelRegistrationAsync(Guid shiftId,string userId,Guid tenantId,CancellationToken cancellationToken = default);
 
     Task<IEnumerable<Shift>> GetShiftsByEmployeeAsync(Guid employeeId, Guid tenantId, CancellationToken cancellationToken = default);
+    Task<bool> ExistsShiftOnDateAsync(Guid tenantId, DateTime date, CancellationToken cancellationToken = default);
+
 
 }

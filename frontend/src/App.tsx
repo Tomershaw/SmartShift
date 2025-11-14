@@ -11,7 +11,7 @@ import AdminEmployeesPage from "./features/scheduling/admin/pages/ratings/pages/
 import AdminEmployeeParametersPage from "./features/scheduling/admin/pages/ratings/pages/AdminEmployeeParametersPage";
 import AdminCreateShiftPage from "./features/scheduling/admin/pages/AdminCreateShiftPage";
 import AdminCreateWeekPage from "./features/scheduling/admin/pages/AdminCreateWeekPage";
-
+import AdminRegistrationsPage from "./features/scheduling/admin/pages/AdminRegistrationsPage";
 import "./App.css";
 
 function App() {
@@ -19,7 +19,6 @@ function App() {
     <Routes>
       {/* הזדהות */}
       <Route path="/auth" element={<AuthPage />} />
-
       {/* מנהל/מנג'ר - דף מנהל */}
       <Route
         path="/admin"
@@ -29,7 +28,6 @@ function App() {
           </ProtectedRoute>
         }
       />
-
       {/* עובד - דף ההרשמה */}
       <Route
         path="/employee/signup"
@@ -39,7 +37,6 @@ function App() {
           </ProtectedRoute>
         }
       />
-
       {/* ניהול משמרות - רשימה/גריד */}
       <Route
         path="/admin/shifts"
@@ -49,7 +46,6 @@ function App() {
           </ProtectedRoute>
         }
       />
-
       {/* ניהול משמרת - תקציר משמרת בודדת */}
       <Route
         path="/admin/shifts/:shiftId/summary"
@@ -59,7 +55,6 @@ function App() {
           </ProtectedRoute>
         }
       />
-
       {/* ניהול עובדים - רישום עובד חדש */}
       <Route
         path="/admin/employees/register"
@@ -94,7 +89,6 @@ function App() {
           </ProtectedRoute>
         }
       />
-
       {/* יצירת שבוע (ראשון–חמישי) */}
       <Route
         path="/admin/shifts/create-week"
@@ -104,7 +98,15 @@ function App() {
           </ProtectedRoute>
         }
       />
-
+      // App.tsx - הוסף מתחת לשאר דפי האדמין
+      <Route
+        path="/admin/registrations"
+        element={
+          <ProtectedRoute allowedRoles={["Admin", "Manager"]}>
+            <AdminRegistrationsPage />
+          </ProtectedRoute>
+        }
+      />
       {/* ברירות מחדל */}
       <Route path="/" element={<Navigate to="/auth" replace />} />
       <Route path="*" element={<Navigate to="/auth" replace />} />

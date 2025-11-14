@@ -22,7 +22,7 @@ public class Shift
     public ShiftStatus Status { get; private set; }
     public DateTime? UpdatedAt { get; private set; }
     public Guid? TenantId { get; set; }
-    public Tenant? Tenant { get; set; }
+    public Tenant Tenant { get; set; }
     public ICollection<ShiftRegistration> ShiftRegistrations { get; set; } = new List<ShiftRegistration>();
 
 

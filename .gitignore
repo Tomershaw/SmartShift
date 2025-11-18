@@ -22,3 +22,9 @@ dist/
 # === System Files ===
 .DS_Store
 Thumbs.db
+.azure
+/deploy.ps1
+/SCRIPTS-README.md
+/view-logs.ps1
+/manage-app.ps1
+/SmartShift.Api/wwwroot

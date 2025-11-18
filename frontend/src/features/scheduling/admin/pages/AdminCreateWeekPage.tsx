@@ -1,4 +1,3 @@
-// src/features/scheduling/admin/pages/AdminCreateWeekPage.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -8,8 +7,8 @@ import {
 
 type DayCfg = {
   active: boolean;
-  date: string;      // YYYY-MM-DD
-  time: string;      // HH:MM
+  date: string; // YYYY-MM-DD
+  time: string; // HH:MM
   name: string;
   required: number;
   minimum: number;
@@ -38,7 +37,7 @@ function fmtDate(d: Date) {
   return `${y}-${m}-${dd}`;
 }
 
-/* תאריך הבא כ-YYYY-MM-DD */
+/* תאריך הבא כ YYYY-MM-DD */
 function nextDate(date: string): string {
   const d = new Date(date + "T00:00:00");
   d.setDate(d.getDate() + 1);
@@ -48,7 +47,7 @@ function nextDate(date: string): string {
   return `${y}-${m}-${dd}`;
 }
 
-/* ל-UTC ISO */
+/* ל UTC ISO */
 function toUtcIso(date: string, time: string) {
   const [h, m] = time.split(":").map(Number);
   const d = new Date(date + "T00:00:00");
@@ -61,8 +60,73 @@ function shiftToDateIso(shift: ShiftSummaryDto): string {
   return shift.startTime.substring(0, 10);
 }
 
+/* Stepper מספרי כללי */
+type NumberStepperProps = {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  min: number;
+  max: number;
+  disabled?: boolean;
+};
+
+function NumberStepper({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  disabled,
+}: NumberStepperProps) {
+  const dec = () => {
+    if (disabled) return;
+    if (value > min) onChange(value - 1);
+  };
+
+  const inc = () => {
+    if (disabled) return;
+    if (value < max) onChange(value + 1);
+  };
+
+  return (
+    <div>
+      <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1">
+        {label}
+      </label>
+      <div
+        className={[
+          "mt-1 flex items-center rounded-xl border px-2 py-1.5 bg-white shadow-sm",
+          disabled
+            ? "border-slate-200 bg-slate-50 opacity-70 cursor-not-allowed"
+            : "border-slate-300",
+        ].join(" ")}
+      >
+        <button
+          type="button"
+          onClick={dec}
+          disabled={disabled || value <= min}
+          className="px-2 py-1 text-sm font-semibold text-slate-700 disabled:text-slate-300 disabled:cursor-not-allowed"
+        >
+          -
+        </button>
+        <div className="flex-1 text-center text-sm font-semibold text-slate-900">
+          {value}
+        </div>
+        <button
+          type="button"
+          onClick={inc}
+          disabled={disabled || value >= max}
+          className="px-2 py-1 text-sm font-semibold text-slate-700 disabled:text-slate-300 disabled:cursor-not-allowed"
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminCreateWeekPage() {
-  // ברירת מחדל: ראשון–חמישי של השבוע הבא
+  // ברירת מחדל: ראשון עד חמישי של השבוע הבא
   const defaults = useMemo(() => {
     const sun = nextSunday();
     return Array.from({ length: 5 }, (_, i) => {
@@ -89,7 +153,6 @@ export default function AdminCreateWeekPage() {
   const [selected, setSelected] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
-  // כאן במקום boolean: תאריך -> המשמרת של אותו יום (אם קיימת)
   const [existingByDate, setExistingByDate] = useState<
     Record<string, ShiftSummaryDto | undefined>
   >({});
@@ -120,7 +183,6 @@ export default function AdminCreateWeekPage() {
         const map: Record<string, ShiftSummaryDto> = {};
         for (const s of shifts) {
           const iso = shiftToDateIso(s);
-          // מניחים משמרת אחת ליום — אם יש יותר, נשמור רק אחת
           if (!map[iso]) {
             map[iso] = s;
           }
@@ -128,17 +190,12 @@ export default function AdminCreateWeekPage() {
 
         setExistingByDate(map);
 
-        // כיבוי active לימים שכבר יש להם משמרת
         setDays((prev) =>
-          prev.map((d) =>
-            map[d.date] ? { ...d, active: false } : d
-          )
+          prev.map((d) => (map[d.date] ? { ...d, active: false } : d))
         );
       } catch (err) {
         console.error("שגיאה בטעינת משמרות קיימות לשבוע:", err);
-        setErrorMsg(
-          "לא הצלחנו לבדוק את הימים. השרת עדיין מגן מפני כפילות."
-        );
+        setErrorMsg("לא הצלחנו לבדוק את הימים. השרת עדיין מגן מפני כפילות.");
       } finally {
         setLoadingExisting(false);
       }
@@ -178,7 +235,6 @@ export default function AdminCreateWeekPage() {
     );
   }
 
-  // שינוי תאריך ליום הנבחר — רק אם לא נעול
   function handleDateChange(newDate: string) {
     if (!newDate) return;
     const cur = days[selected];
@@ -191,9 +247,7 @@ export default function AdminCreateWeekPage() {
     }
 
     setDays((prev) =>
-      prev.map((d, i) =>
-        i === selected ? { ...d, date: newDate } : d
-      )
+      prev.map((d, i) => (i === selected ? { ...d, date: newDate } : d))
     );
   }
 
@@ -201,9 +255,7 @@ export default function AdminCreateWeekPage() {
     const shift = existingByDate[date];
     if (!shift) return;
 
-    const ok = window.confirm(
-      `לבטל (למחוק) את המשמרת בתאריך ${date}?`
-    );
+    const ok = window.confirm(`לבטל (למחוק) את המשמרת בתאריך ${date}?`);
     if (!ok) return;
 
     try {
@@ -218,22 +270,18 @@ export default function AdminCreateWeekPage() {
         return;
       }
 
-      // הסרה מהמפה -> היום נהיה פנוי
       setExistingByDate((prev) => {
         const copy = { ...prev };
         delete copy[date];
         return copy;
       });
 
-      // לוודא שהטופס ליום הזה חוזר למצב לא פעיל/ריק אם היה נעול
       setDays((prev) =>
         prev.map((d) =>
           d.date === date
             ? {
                 ...d,
                 active: false,
-                // אפשר להשאיר שדות כמו שהם או לאפס; בחרתי לאפס בעדינות
-                // אם אתה רוצה להשאיר ערכים, תוריד את האיפוס.
               }
             : d
         )
@@ -265,7 +313,7 @@ export default function AdminCreateWeekPage() {
 
       for (const d of days) {
         if (!d.active) continue;
-        if (nextExisting[d.date]) continue; // כבר תפוס
+        if (nextExisting[d.date]) continue;
 
         const res = await adminSchedulingApi.createShift({
           name: d.name,
@@ -279,7 +327,6 @@ export default function AdminCreateWeekPage() {
 
         if (res?.success) {
           created += 1;
-          // מייצרים "שורת משמרת" מינימלית למפה
           nextExisting[d.date] = {
             id: res.shiftId || "",
             startTime: res.startTime || toUtcIso(d.date, d.time),
@@ -290,12 +337,9 @@ export default function AdminCreateWeekPage() {
       if (created > 0) {
         setExistingByDate(nextExisting);
 
-        // כיבוי ימים שנוצרו
         setDays((prev) =>
           prev.map((d) =>
-            nextExisting[d.date]
-              ? { ...d, active: false }
-              : d
+            nextExisting[d.date] ? { ...d, active: false } : d
           )
         );
 
@@ -323,9 +367,6 @@ export default function AdminCreateWeekPage() {
           <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900">
             יצירת משמרות לשבוע
           </h1>
-          <p className="text-xs sm:text-sm text-slate-600">
-            ראשון עד חמישי — משמרת אחת לכל יום. אם קיימת משמרת, היום נעול אך ניתן לבטל אותה.
-          </p>
         </div>
         <Link
           to="/admin"
@@ -336,7 +377,7 @@ export default function AdminCreateWeekPage() {
       </header>
 
       {/* סרגל ימים */}
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-4 -mx-2 flex flex-nowrap gap-2 overflow-x-auto pb-1 sm:mx-0 sm:flex-wrap sm:justify-start">
         {days.map((d, idx) => {
           const locked = !!existingByDate[d.date];
           const isActiveTab = idx === selected;
@@ -347,24 +388,27 @@ export default function AdminCreateWeekPage() {
               type="button"
               onClick={() => setSelected(idx)}
               className={[
-                "flex items-center gap-2 rounded-full px-4 py-2 text-xs sm:text-sm border transition",
+                "flex min-w-[90px] items-center justify-center gap-2 rounded-full px-4 py-2 text-xs sm:text-sm border transition",
                 isActiveTab
                   ? "bg-slate-900 text-white border-slate-900"
                   : "bg-white text-slate-800 border-slate-300 hover:bg-slate-50",
               ].join(" ")}
             >
               <span className="font-semibold">{HEB_DAYS[idx]}</span>
-              <span className="text-[10px] text-slate-500">{d.date}</span>
+              <span className="text-[10px] text-slate-500 hidden sm:inline">
+                {d.date}
+              </span>
               {locked ? (
-                <span className="text-[9px] rounded-full bg-red-50 text-red-700 border border-red-200 px-2 py-0.5">
+                <span className="text-[9px] rounded-full bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 hidden sm:inline">
                   קיימת משמרת
                 </span>
               ) : d.active ? (
-                <span className="text-[9px] rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5">
+                <span className="text-[9px] rounded-full bg-emer
+ald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 hidden sm:inline">
                   נבחר
                 </span>
               ) : (
-                <span className="text-[9px] rounded-full bg-slate-50 text-slate-500 border border-slate-200 px-2 py-0.5">
+                <span className="text-[9px] rounded-full bg-slate-50 text-slate-500 border border-slate-200 px-2 py-0.5 hidden sm:inline">
                   כבוי
                 </span>
               )}
@@ -376,7 +420,8 @@ export default function AdminCreateWeekPage() {
       {/* שורת סטטוס יום נבחר */}
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-slate-700 text-xs sm:text-sm">
         <div>
-          <span className="font-semibold">{HEB_DAYS[selected]}</span> • {cur.date}
+          <span className="font-semibold">{HEB_DAYS[selected]}</span> •{" "}
+          {cur.date}
           {isLocked && (
             <span className="ml-2 text-red-600 text-[10px] sm:text-xs">
               קיימת משמרת ליום זה. לא ניתן ליצור נוספת.
@@ -391,9 +436,7 @@ export default function AdminCreateWeekPage() {
             disabled={deletingShiftId === lockedShift.id}
             className="text-[9px] sm:text-xs rounded-full border border-red-300 bg-red-50 px-3 py-1 text-red-700 hover:bg-red-100"
           >
-            {deletingShiftId === lockedShift.id
-              ? "מבטל..."
-              : "בטל משמרת ליום זה"}
+            {deletingShiftId === lockedShift.id ? "מבטל..." : "בטל משמרת ליום זה"}
           </button>
         )}
       </div>
@@ -403,7 +446,7 @@ export default function AdminCreateWeekPage() {
         onSubmit={handleSubmit}
         className="space-y-4 rounded-2xl border bg-white p-4 sm:p-5 shadow-sm"
       >
-        {/* צ׳קבוקס + נקה */}
+        {/* צקבוקס + נקה */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label className="inline-flex items-center gap-2 text-xs sm:text-sm">
             <input
@@ -437,9 +480,7 @@ export default function AdminCreateWeekPage() {
             <input
               className="mt-1 w-full rounded-xl border px-3 py-2 text-sm"
               value={cur.name}
-              onChange={(e) =>
-                update(selected, { name: e.target.value })
-              }
+              onChange={(e) => update(selected, { name: e.target.value })}
               placeholder="למשל: אירוע ערב"
               disabled={isLocked || !cur.active}
             />
@@ -449,13 +490,15 @@ export default function AdminCreateWeekPage() {
             <label className="block text-xs sm:text-sm font-medium">
               תאריך המשמרת
             </label>
-            <input
-              type="date"
-              className="mt-1 w-full rounded-xl border px-3 py-2 text-sm"
-              value={cur.date}
-              onChange={(e) => handleDateChange(e.target.value)}
-              disabled={isLocked}
-            />
+            <div className="mt-1 max-w-md mx-auto sm:max-w-none sm:mx-0 rounded-xl border bg-white overflow-hidden">
+              <input
+                type="date"
+                className="w-full px-3 py-2 text-sm text-center bg-transparent focus:outline-none"
+                value={cur.date}
+                onChange={(e) => handleDateChange(e.target.value)}
+                disabled={isLocked}
+              />
+            </div>
           </div>
         </div>
 
@@ -465,95 +508,63 @@ export default function AdminCreateWeekPage() {
             <label className="block text-xs sm:text-sm font-medium">
               שעת התחלה
             </label>
-            <input
-              type="time"
-              className="mt-1 w-full rounded-xl border px-3 py-2 text-sm"
-              value={cur.time}
-              onChange={(e) =>
-                update(selected, { time: e.target.value })
-              }
-              disabled={isLocked || !cur.active}
-            />
+            <div className="mt-1 max-w-md mx-auto sm:max-w-none sm:mx-0 rounded-xl border bg-white overflow-hidden">
+              <input
+                type="time"
+                className="w-full px-3 py-2 text-sm text-center bg-transparent focus:outline-none"
+                value={cur.time}
+                onChange={(e) => update(selected, { time: e.target.value })}
+                disabled={isLocked || !cur.active}
+              />
+            </div>
           </div>
-          <div>
-            <label className="block text-xs sm:text-sm font-medium">
-              מיומנות (1–10)
-            </label>
-            <input
-              type="number"
-              min={1}
-              max={10}
-              className="mt-1 w-full rounded-xl border px-3 py-2 text-sm"
-              value={cur.skill}
-              onChange={(e) =>
-                update(selected, { skill: Number(e.target.value) })
-              }
-              disabled={isLocked || !cur.active}
-            />
-          </div>
+
+          <NumberStepper
+            label="מיומנות (1–10)"
+            value={cur.skill}
+            onChange={(val) => update(selected, { skill: val })}
+            min={1}
+            max={10}
+            disabled={isLocked || !cur.active}
+          />
         </div>
 
         {/* נדרש / מינימום / מוקדמים */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <label className="block text-xs sm:text-sm font-medium">
-              נדרש
-            </label>
-            <input
-              type="number"
-              min={1}
-              className="mt-1 w-full rounded-xl border px-3 py-2 text-sm"
-              value={cur.required}
-              onChange={(e) =>
-                update(selected, { required: Number(e.target.value) })
-              }
-              disabled={isLocked || !cur.active}
-            />
-          </div>
-          <div>
-            <label className="block text-xs sm:text-sm font-medium">
-              מינימום
-            </label>
-            <input
-              type="number"
-              min={0}
-              className="mt-1 w-full rounded-xl border px-3 py-2 text-sm"
-              value={cur.minimum}
-              onChange={(e) =>
-                update(selected, { minimum: Number(e.target.value) })
-              }
-              disabled={isLocked || !cur.active}
-            />
-          </div>
-          <div>
-            <label className="block text-xs sm:text-sm font-medium">
-              מוקדמים
-            </label>
-            <input
-              type="number"
-              min={0}
-              className="mt-1 w-full rounded-xl border px-3 py-2 text-sm"
-              value={cur.earlyMin}
-              onChange={(e) =>
-                update(selected, { earlyMin: Number(e.target.value) })
-              }
-              disabled={isLocked || !cur.active}
-            />
-          </div>
+          <NumberStepper
+            label="נדרש"
+            value={cur.required}
+            onChange={(val) => update(selected, { required: val })}
+            min={1}
+            max={15}
+            disabled={isLocked || !cur.active}
+          />
+          <NumberStepper
+            label="מינימום"
+            value={cur.minimum}
+            onChange={(val) => update(selected, { minimum: val })}
+            min={0}
+            max={15}
+            disabled={isLocked || !cur.active}
+          />
+          <NumberStepper
+            label="מוקדמים"
+            value={cur.earlyMin}
+            onChange={(val) => update(selected, { earlyMin: val })}
+            min={0}
+            max={10}
+            disabled={isLocked || !cur.active}
+          />
         </div>
 
         {/* תיאור */}
         <div>
-          <label className="block text-xs sm:text-sm font-medium">
-            תיאור
-          </label>
+          <label className="block text-xs sm:text-sm font-medium">תיאור</label>
           <textarea
             className="mt-1 w-full rounded-xl border px-3 py-2 text-sm"
             rows={3}
             value={cur.description}
-            onChange={(e) =>
-              update(selected, { description: e.target.value })
-            }
+            onChange={(e) => update(selected, { description: e.target.value })}
             placeholder="פרטים חשובים למשמרת"
             disabled={isLocked || !cur.active}
           />

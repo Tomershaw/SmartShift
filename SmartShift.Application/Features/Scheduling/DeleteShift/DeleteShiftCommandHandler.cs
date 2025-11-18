@@ -56,7 +56,8 @@ public sealed class DeleteShiftCommandHandler
             //    };
             //}
 
-            await _shiftRepository.DeleteAsync(shift.Id, tenantId, cancellationToken);
+           // await _shiftRepository.DeleteAsync(shift.Id, tenantId, cancellationToken);
+           await _shiftRepository.SoftDeleteAsync(shift.Id, tenantId, cancellationToken);
 
             return new DeleteShiftResult
             {

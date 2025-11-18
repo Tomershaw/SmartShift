@@ -7,6 +7,10 @@ export default defineConfig({
   css: {
     postcss: "./postcss.config.js", // טוען את הקובץ PostCSS בו מוגדר Tailwind
   },
+  build: {
+    outDir: "../SmartShift.Api/wwwroot",
+    emptyOutDir: true,
+  },
   server: {
     proxy: {
       "/api": {

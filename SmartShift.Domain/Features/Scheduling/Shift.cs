@@ -61,6 +61,10 @@ public class Shift
         Status = ShiftStatus.Open;
     }
 
+    public void UpdateStatus(ShiftStatus status)
+    {
+        Status = status;
+    }
 
 
 

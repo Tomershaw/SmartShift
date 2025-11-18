@@ -175,7 +175,7 @@ export default function EmployeeSignupPage() {
   const TEST_MODE = true;
   const { start: submitStart, end: submitEnd } = useMemo(() => {
     if (TEST_MODE) {
-      const end = ilTodayAtHourIL(20, now);
+      const end = ilTodayAtHourIL(23, now);
       const start = new Date(now.getTime() - 60_000);
       return { start, end };
     }

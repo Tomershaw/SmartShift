@@ -1,0 +1,19 @@
+# Ignore build outputs
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+
+# Ignore git
+.git/
+.gitignore
+
+# Ignore IDE files
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Ignore documentation
+*.md
+!README.md

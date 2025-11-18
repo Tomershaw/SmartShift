@@ -1,14 +1,15 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SmartShift.Domain.Features.Employees;
 using SmartShift.Domain.Features.Scheduling;
 using SmartShift.Domain.Features.ShiftRegistrations;
 using SmartShift.Infrastructure.Data;
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SmartShift.Infrastructure.Repositories;
 
@@ -766,13 +767,15 @@ public class ShiftRepository : IShiftRepository
             _logger.LogInformation("Getting shifts from {StartDate} to {EndDate} for tenant {TenantId}", startDate, endDate, tenantId);
 
             var shifts = await _context.Shifts
-                .Where(s => s.TenantId == tenantId &&
-                           s.StartTime >= startDate &&
-                            s.StartTime < endDate)
-                .Include(s => s.ShiftRegistrations)
-                    .ThenInclude(sr => sr.Employee)
-                .OrderBy(s => s.StartTime)
-                .ToListAsync(cancellationToken);
+     .Where(s =>
+         s.TenantId == tenantId &&
+         s.StartTime >= startDate &&
+         s.StartTime < endDate &&
+         s.Status != ShiftStatus.Cancelled) 
+     .Include(s => s.ShiftRegistrations)
+         .ThenInclude(sr => sr.Employee)
+     .OrderBy(s => s.StartTime)
+     .ToListAsync(cancellationToken);
 
             _logger.LogInformation("Found {ShiftCount} shifts for tenant {TenantId} in date range", shifts.Count, tenantId);
             return shifts;
@@ -936,27 +939,73 @@ public class ShiftRepository : IShiftRepository
     }
 
     public async Task<bool> ExistsShiftOnDateAsync(
-    Guid tenantId,
-    DateTime startTimeUtc,
-    CancellationToken cancellationToken = default)
+        Guid tenantId,
+        DateTime startTimeUtc,
+        CancellationToken cancellationToken = default)
     {
         if (tenantId == Guid.Empty)
             throw new ArgumentException("Tenant ID cannot be empty", nameof(tenantId));
-
         if (startTimeUtc == default)
             throw new ArgumentException("Start time cannot be default", nameof(startTimeUtc));
+
+        // נורמליזציה - דואגים שבתוך הפונקציה זה באמת UTC
+        if (startTimeUtc.Kind == DateTimeKind.Unspecified)
+        {
+            // אם אתה יודע שכל מה שמגיע מהפרונט הוא UTC:
+            startTimeUtc = DateTime.SpecifyKind(startTimeUtc, DateTimeKind.Utc);
+        }
+        else
+        {
+            startTimeUtc = startTimeUtc.ToUniversalTime();
+        }
 
         var dayStart = startTimeUtc.Date;
         var dayEnd = dayStart.AddDays(1);
 
         return await _context.Shifts.AnyAsync(
             s => s.TenantId == tenantId
+              && s.Status != ShiftStatus.Cancelled
               && s.StartTime >= dayStart
               && s.StartTime < dayEnd,
             cancellationToken);
     }
 
-
+    public async Task SoftDeleteAsync(Guid id, Guid tenantId, CancellationToken cancellationToken)
+    {
+        if (id == Guid.Empty)
+            throw new ArgumentException("Shift ID cannot be empty", nameof(id));
+        if (tenantId == Guid.Empty)
+            throw new ArgumentException("Tenant ID cannot be empty", nameof(tenantId));
+        try
+        {
+            _logger.LogInformation("Soft deleting shift {ShiftId} for tenant {TenantId}", id, tenantId);
+            var shift = await _context.Shifts
+                .FirstOrDefaultAsync(s => s.Id == id && s.TenantId == tenantId, cancellationToken);
+            if (shift == null)
+            {
+                _logger.LogWarning("Shift {ShiftId} not found for tenant {TenantId}", id, tenantId);
+                return;
+            }
+            shift.UpdateStatus(ShiftStatus.Cancelled);
+            await _context.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("Successfully soft deleted shift {ShiftId}", id);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("SoftDeleteAsync operation was cancelled for shift {ShiftId}", id);
+            throw;
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogError(ex, "Database error while soft deleting shift {ShiftId}", id);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error soft deleting shift {ShiftId} for tenant {TenantId}", id, tenantId);
+            throw;
+        }
+    }
 
 
 

@@ -42,4 +42,8 @@
     <Folder Include="Endpoints\UserManagement\" />
   </ItemGroup>
 
+	<ItemGroup>
+		<Folder Include="Endpoints\UserManagement\" />
+	</ItemGroup>
+
 </Project>

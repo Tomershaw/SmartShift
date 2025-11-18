@@ -137,15 +137,56 @@ builder.Services.AddAuthorization();
 // ✅ Carter, CORS, DI
 builder.Services.AddCarter();
 builder.Services.AddScoped<Carter.IValidatorLocator, Carter.DefaultValidatorLocator>();
+var originsFromEnv = Environment
+    .GetEnvironmentVariable("CORS_ORIGINS");
+
+// מפצל לרשימה
+string[] allowedOrigins = Array.Empty<string>();
+
+if (!string.IsNullOrWhiteSpace(originsFromEnv))
+{
+    allowedOrigins = originsFromEnv
+        .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+}
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
+        if (builder.Environment.IsDevelopment())
+        {
+            // Dev - localhost מאושר בשביל Aspire
+            policy
+                .SetIsOriginAllowed(origin =>
+                {
+                    if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                        return false;
+
+                    return uri.Host == "localhost";
+                })
+                .AllowAnyMethod()
+                .AllowAnyHeader()
+                .AllowCredentials();
+        }
+        else
+        {
+            // Prod - משתמשים ב origins מה env
+            if (allowedOrigins.Length > 0)
+            {
+                policy
+                    .WithOrigins(allowedOrigins)
+                    .AllowAnyMethod()
+                    .AllowAnyHeader()
+                    .AllowCredentials();
+            }
+            else
+            {
+                // אם לא הוגדר env, אפשר או לחסום הכל או לזרוק שגיאה לוגית
+                // כאן לדוגמה אני חוסם הכל במודע
+                policy
+                    .DisallowCredentials(); // סתם משהו "ריק"
+            }
+        }
     });
 });
 
@@ -204,6 +245,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseDefaultFiles();   // 🔵 מחפש index.html ב-wwwroot
+app.UseStaticFiles();    // 🔵 מגיש קבצים סטטיים
 
 app.UseExceptionMiddleware();
 app.UseHttpsRedirection();

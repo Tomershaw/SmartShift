@@ -8,39 +8,74 @@ public static class SemanticKernelServiceExtensions
 {
     public static IServiceCollection AddSemanticKernel(this IServiceCollection services, IConfiguration configuration)
     {
-        // שלב 1: קריאת ההגדרות מה-appsettings.json
-        var semanticKernelOptions = new SemanticKernelOptions();
-        configuration.GetSection(SemanticKernelOptions.SectionName).Bind(semanticKernelOptions);
+        // קודם ננסה לקרוא מה-IConfiguration כמו שצריך
+        var openAiApiKey =
+            configuration["SemanticKernel:OpenAI:ApiKey"]
+            ?? configuration["OpenAI:ApiKey"];
 
-        // שלב 2: שמירת ההגדרות במערכת ה-DI
-        services.Configure<SemanticKernelOptions>(configuration.GetSection(SemanticKernelOptions.SectionName));
+        var openAiModelId =
+            configuration["SemanticKernel:OpenAI:ModelId"]
+            ?? configuration["OpenAI:ModelId"];
 
-        // שלב 3: יצירת ה-Kernel (המוח של Semantic Kernel)
+        var azureEndpoint =
+            configuration["SemanticKernel:AzureOpenAI:Endpoint"]
+            ?? configuration["AzureOpenAI:Endpoint"];
+
+        var azureDeploymentName =
+            configuration["SemanticKernel:AzureOpenAI:DeploymentName"]
+            ?? configuration["AzureOpenAI:DeploymentName"];
+
+        var azureApiKey =
+            configuration["SemanticKernel:AzureOpenAI:ApiKey"]
+            ?? configuration["AzureOpenAI:ApiKey"];
+
+        // אם משום מה הקונפיג לא רואה את זה - נלך ישירות ל־Environment Variables
+        openAiApiKey ??= Environment.GetEnvironmentVariable("SemanticKernel__OpenAI__ApiKey")
+                        ?? Environment.GetEnvironmentVariable("OpenAI__ApiKey");
+
+        openAiModelId ??= Environment.GetEnvironmentVariable("SemanticKernel__OpenAI__ModelId")
+                         ?? Environment.GetEnvironmentVariable("OpenAI__ModelId");
+
+        azureEndpoint ??= Environment.GetEnvironmentVariable("SemanticKernel__AzureOpenAI__Endpoint")
+                         ?? Environment.GetEnvironmentVariable("AzureOpenAI__Endpoint");
+
+        azureDeploymentName ??= Environment.GetEnvironmentVariable("SemanticKernel__AzureOpenAI__DeploymentName")
+                               ?? Environment.GetEnvironmentVariable("AzureOpenAI__DeploymentName");
+
+        azureApiKey ??= Environment.GetEnvironmentVariable("SemanticKernel__AzureOpenAI__ApiKey")
+                       ?? Environment.GetEnvironmentVariable("AzureOpenAI__ApiKey");
+
+        // לוג קצר לעזרה אם עדיין יש בעיות
+        Console.WriteLine($"[SK] OpenAI ApiKey length: {openAiApiKey?.Length ?? 0}");
+        Console.WriteLine($"[SK] OpenAI ModelId: {openAiModelId ?? "null"}");
+        Console.WriteLine($"[SK] Azure Endpoint: {azureEndpoint ?? "null"}");
+        Console.WriteLine($"[SK] Azure Deployment: {azureDeploymentName ?? "null"}");
+
         var kernelBuilder = Kernel.CreateBuilder();
 
-        // שלב 4: הגדרת חיבור ל-OpenAI או Azure OpenAI
-        if (!string.IsNullOrEmpty(semanticKernelOptions.AzureOpenAI?.Endpoint))
+        // קודם ננסה Azure OpenAI אם מוגדר
+        if (!string.IsNullOrWhiteSpace(azureEndpoint) &&
+            !string.IsNullOrWhiteSpace(azureDeploymentName) &&
+            !string.IsNullOrWhiteSpace(azureApiKey))
         {
-            // אם יש הגדרות Azure OpenAI - השתמש בהן
             kernelBuilder.AddAzureOpenAIChatCompletion(
-                deploymentName: semanticKernelOptions.AzureOpenAI.DeploymentName,
-                endpoint: semanticKernelOptions.AzureOpenAI.Endpoint,
-                apiKey: semanticKernelOptions.AzureOpenAI.ApiKey);
+                deploymentName: azureDeploymentName,
+                endpoint: azureEndpoint,
+                apiKey: azureApiKey);
         }
-        else if (!string.IsNullOrEmpty(semanticKernelOptions.OpenAI?.ApiKey))
+        // אחרת נלך על OpenAI רגיל
+        else if (!string.IsNullOrWhiteSpace(openAiApiKey) &&
+                 !string.IsNullOrWhiteSpace(openAiModelId))
         {
-            // אם יש הגדרות OpenAI רגיל - השתמש בהן
             kernelBuilder.AddOpenAIChatCompletion(
-                modelId: semanticKernelOptions.OpenAI.ModelId,
-                apiKey: semanticKernelOptions.OpenAI.ApiKey);
+                modelId: openAiModelId,
+                apiKey: openAiApiKey);
         }
         else
         {
-            // אם אין הגדרות בכלל - זרוק שגיאה
             throw new InvalidOperationException("Either OpenAI or AzureOpenAI configuration must be provided");
         }
 
-        // שלב 5: יצירת ה-Kernel הסופי ורישומו במערכת ה-DI
         var kernel = kernelBuilder.Build();
         services.AddSingleton(kernel);
 

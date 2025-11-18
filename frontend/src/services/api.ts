@@ -2,7 +2,7 @@
   import authService from "../features/auth/api/authService"; // ודא שהנתיב הזה נכון אצלך
 
   const api = axios.create({
-    baseURL: "https://localhost:7002/api",
+    baseURL: import.meta.env.VITE_API_URL || "/api",
   });
 
   // ✅ מוסיף Authorization רק לבקשות רגילות, לא ל־refresh-token
@@ -43,7 +43,7 @@
           const refreshResponse = await axios.post<{
             token: string;
             refreshToken: string;
-          }>("https://localhost:7002/api/account/refresh-token", {
+          }>(`${import.meta.env.VITE_API_URL || "/api"}/account/refresh-token`, {
             refreshToken,
           });
 

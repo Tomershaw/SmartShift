@@ -101,11 +101,8 @@ export default function AdminEmployeesPage() {
       <header className="mb-2 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900">
-            דירוגים / פרמטרים — עובדים
+            דירוגים-עובדים
           </h1>
-          <p className="text-slate-600 text-sm mt-1">
-            בחר עובד כדי לעדכן פרמטרים.
-          </p>
         </div>
 
         <Link

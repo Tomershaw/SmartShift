@@ -25,16 +25,26 @@ public class JwtTokenGenerator : IJwtTokenGenerator
         _context = context;
     }
 
-    public async Task<string> GenerateTokenAsync(Domain.Data.ApplicationUser user)
+    public async Task<string> GenerateTokenAsync(ApplicationUser user)
     {
         var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Key"]!);
         var tokenHandler = new JwtSecurityTokenHandler();
-
         var roles = await _userManager.GetRolesAsync(user);
 
         // ✅ מציאת Employee המקושר למשתמש
         var employee = await _context.Employees
             .FirstOrDefaultAsync(e => e.UserId == user.Id);
+
+        // 🔥 הוסף לוגים!
+        Console.WriteLine($"=== JWT DEBUG ===");
+        Console.WriteLine($"User ID: {user.Id}");
+        Console.WriteLine($"Employee found: {employee != null}");
+        if (employee != null)
+        {
+            Console.WriteLine($"Employee Gender: '{employee.Gender}'");
+            Console.WriteLine($"Gender is null or empty: {string.IsNullOrEmpty(employee.Gender)}");
+        }
+        Console.WriteLine($"=================");
 
         var claims = new List<Claim>
         {
@@ -43,6 +53,17 @@ public class JwtTokenGenerator : IJwtTokenGenerator
             new Claim(ClaimTypes.Name, user.FullName),
             new Claim("fullName", user.FullName)
         };
+
+        // 🔥 הוסף Gender מה-Employee
+        if (employee != null && !string.IsNullOrEmpty(employee.Gender))
+        {
+            claims.Add(new Claim(ClaimTypes.Gender, employee.Gender));
+            Console.WriteLine($"✅ Added gender claim: {employee.Gender}");
+        }
+        else
+        {
+            Console.WriteLine($"❌ Gender NOT added!");
+        }
 
         // ✅ הוספת EmployeeId אם קיים
         if (employee != null)
@@ -65,7 +86,7 @@ public class JwtTokenGenerator : IJwtTokenGenerator
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddHours(24), // שיניתי ל-24 שעות במקום 15 שניות
+            Expires = DateTime.UtcNow.AddHours(24),
             SigningCredentials = new SigningCredentials(
                 new SymmetricSecurityKey(key),
                 SecurityAlgorithms.HmacSha256Signature),
@@ -77,4 +98,3 @@ public class JwtTokenGenerator : IJwtTokenGenerator
         return tokenHandler.WriteToken(token);
     }
 }
-

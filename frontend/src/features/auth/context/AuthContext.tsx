@@ -5,6 +5,7 @@ export interface AuthContextType {
     email: string;
     role: string;
     exp: number;
+    gender?: 'Male' | 'Female' | 'Other';
   } | null;
   isAuthenticated: boolean;
   logout: () => void;

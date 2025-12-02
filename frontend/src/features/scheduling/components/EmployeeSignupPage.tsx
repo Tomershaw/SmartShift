@@ -383,6 +383,10 @@ export default function EmployeeSignupPage() {
     }
   }
 
+  
+  console.log('Full user:', user);
+  console.log('Gender:', user?.gender);
+
   /* ========= UI ========= */
   return (
     <div
@@ -539,37 +543,40 @@ export default function EmployeeSignupPage() {
                   <div className="mt-2 text-[11px] text-slate-500">טוען...</div>
                 )}
               </header>
-
+                
               <div className="flex flex-col gap-3">
-                <button
-                  onClick={() => select(iso, "early")}
-                  disabled={!buttonsEnabled}
-                  className={`group rounded-xl border px-4 py-3 text-sm font-medium transition flex items-center justify-between
-                    ${
-                      sel === "early"
-                        ? "border-emerald-400 bg-white ring-2 ring-emerald-300"
-                        : "border-slate-300 bg-slate-50 hover:bg-white"
-                    }
-                    ${!buttonsEnabled ? "opacity-50 cursor-not-allowed" : ""}`}
-                >
-                  <span>Early</span>
-                  {sel === "early" ? (
-                    <Check className="h-4 w-4" aria-hidden />
-                  ) : (
-                    <span className="text-[10px] text-slate-400">בחר</span>
-                  )}
-                </button>
+                {user?.gender !== "Female" && (
+                  <button
+                    onClick={() => select(iso, "early")}
+                    disabled={!buttonsEnabled}
+                    className={`group rounded-xl border px-4 py-3 text-sm font-medium transition flex items-center justify-between
+                  ${
+                    sel === "early"
+                      ? "border-emerald-400 bg-white ring-2 ring-emerald-300"
+                      : "border-slate-300 bg-slate-50 hover:bg-white"
+                  }
+                  ${!buttonsEnabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                  >
+                    <span>Early</span>
+                    {sel === "early" ? (
+                      <Check className="h-4 w-4" aria-hidden />
+                    ) : (
+                      <span className="text-[10px] text-slate-400">בחר</span>
+                    )}
+                  </button>
+                )}
 
+                {/* כפתור Regular תמיד מוצג */}
                 <button
                   onClick={() => select(iso, "regular")}
                   disabled={!buttonsEnabled}
                   className={`group rounded-xl border px-4 py-3 text-sm font-medium transition flex items-center justify-between
-                    ${
-                      sel === "regular"
-                        ? "border-sky-400 bg-white ring-2 ring-sky-300"
-                        : "border-slate-300 bg-slate-50 hover:bg-white"
-                    }
-                    ${!buttonsEnabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                ${
+                  sel === "regular"
+                    ? "border-sky-400 bg-white ring-2 ring-sky-300"
+                    : "border-slate-300 bg-slate-50 hover:bg-white"
+                }
+                ${!buttonsEnabled ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   <span>Regular</span>
                   {sel === "regular" ? (

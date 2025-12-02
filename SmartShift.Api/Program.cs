@@ -222,22 +222,44 @@ builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBeh
 
 var app = builder.Build();
 
-// ✅ SEEDING (Tenant + Employees + Shifts + Roles + Admin)
+// ✅ Database Migrations (fast, blocking - must complete before app starts)
 using (var scope = app.Services.CreateScope())
 {
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    context.Database.Migrate();
+}
+
+// ✅ Seed Data (non-blocking - runs in background after app starts)
+_ = Task.Run(async () =>
+{
+    await Task.Delay(2000); // Wait 2 seconds for app to fully start
+    using var scope = app.Services.CreateScope();
     var services = scope.ServiceProvider;
     var context = services.GetRequiredService<ApplicationDbContext>();
+    var logger = services.GetRequiredService<ILogger<Program>>();
 
-    context.Database.Migrate();
+    try
+    {
+        logger.LogInformation("🌱 Starting database seeding...");
 
-    await SeedData.SeedTenantAsync(context);
-    var tenant = await context.Tenants.FirstAsync(t => t.Name == "אריא");
+        await SeedData.SeedRolesAsync(services);
+        await SeedData.SeedTenantAsync(context);
 
-    await SeedData.SeedEmployeesAsync(context, tenant.Id);
-    await SeedData.SeedShiftsAsync(context, tenant.Id);
-    await SeedData.SeedRolesAsync(services);
-    await SeedData.SeedAdminUserAsync(services, tenant.Id);
-}
+        var tenant = await context.Tenants.FirstOrDefaultAsync(t => t.Name == "אריא");
+        if (tenant != null)
+        {
+            await SeedData.SeedEmployeesAsync(context, tenant.Id);
+            await SeedData.SeedShiftsAsync(context, tenant.Id);
+            await SeedData.SeedAdminUserAsync(services, tenant.Id);
+        }
+
+        logger.LogInformation("✅ Database seeding completed successfully.");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "❌ Error during database seeding. App will continue running.");
+    }
+});
 
 // ✅ Pipeline
 if (app.Environment.IsDevelopment())

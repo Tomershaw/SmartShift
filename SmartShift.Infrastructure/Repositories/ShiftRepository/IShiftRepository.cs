@@ -39,7 +39,6 @@ public interface IShiftRepository
     Task<IEnumerable<Employee>> GetApprovedEmployeesForShiftAsync(Guid shiftId, Guid tenantId, CancellationToken cancellationToken = default);
     Task<int> GetApprovedEmployeesCountAsync(Guid shiftId, Guid tenantId, CancellationToken cancellationToken = default);
 
-    // תוספת חדשה - מחזירה צילום מצב שבועי מרוכז לעובדים כולם בבת אחת
     Task<WeekSnapshot> GetWeekAssignmentsSnapshotAsync(Guid tenantId, DateTime pivot, CancellationToken cancellationToken = default);
 
     Task<bool> CancelRegistrationAsync(Guid shiftId,string userId,Guid tenantId,CancellationToken cancellationToken = default);

@@ -34,6 +34,8 @@ namespace SmartShift.Domain.Services
 
             // Hard rules go here. Keep them deterministic and data-based.
             if (!BasicCompatibilityCheck(employee, shift)) return false;
+            if (employee.Gender == "Female" && arrival == EmployeeShiftAvailability.Early)
+                return false;   
             if (!PassTimeAndPolicyGuards(employee, shift)) return false;
 
             // NOTE: 'arrival' is intentionally not used as a hard constraint.

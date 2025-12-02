@@ -57,7 +57,12 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddApplication();
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        sqlOptions => sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null)));
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
 {
@@ -223,14 +228,17 @@ builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBeh
 var app = builder.Build();
 
 // ✅ Database Migrations (fast, blocking - must complete before app starts)
-using (var scope = app.Services.CreateScope())
+if (app.Environment.IsDevelopment())
 {
-    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    context.Database.Migrate();
-}
+    using (var scope = app.Services.CreateScope())
+    {
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        context.Database.Migrate();
+    }
 
-// ✅ Seed Data (non-blocking - runs in background after app starts)
-_ = Task.Run(async () =>
+
+    // ✅ Seed Data (non-blocking - runs in background after app starts)
+    _ = Task.Run(async () =>
 {
     await Task.Delay(2000); // Wait 2 seconds for app to fully start
     using var scope = app.Services.CreateScope();
@@ -260,6 +268,7 @@ _ = Task.Run(async () =>
         logger.LogError(ex, "❌ Error during database seeding. App will continue running.");
     }
 });
+}
 
 // ✅ Pipeline
 if (app.Environment.IsDevelopment())

@@ -277,15 +277,20 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseDefaultFiles();   // 🔵 מחפש index.html ב-wwwroot
-app.UseStaticFiles();    // 🔵 מגיש קבצים סטטיים
-
 app.UseExceptionMiddleware();
 app.UseHttpsRedirection();
 app.UseRouting();
+
+app.UseDefaultFiles();   // 🔵 מחפש index.html ב-wwwroot
+app.UseStaticFiles();    // 🔵 מגיש קבצים סטטיים
+
 app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapCarter();
+
+// 🔵 SPA Fallback - serve index.html for non-API routes (React Router)
+app.MapFallbackToFile("index.html");
 
 app.Run();

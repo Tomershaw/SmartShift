@@ -1,16 +1,16 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import authService from "../api/authService";
-import { useLoading } from "../../appLoading/context/useLoading"; // גלובלי
+import { useLoading } from "../../appLoading/context/useLoading";
 
 const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
   <input
     {...props}
-    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 transition text-right"
+    dir="rtl"
   />
 );
 
-// קריאת role מה-JWT
 function getRoleFromToken(token: string | null): string | undefined {
   if (!token) return;
   try {
@@ -29,10 +29,11 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [error, setError] = useState("");
   const [showReset, setShowReset] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
   const [resetMessage, setResetMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(false); // רק לכפתור
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const { show, hide } = useLoading();
   const navigate = useNavigate();
@@ -41,67 +42,48 @@ export default function AuthPage() {
     const checkToken = async () => {
       show("בודק התחברות...");
       try {
-        await authService.validateToken(); // רק בדיקה
+        await authService.validateToken();
       } finally {
-        hide(); // הסתרת הספינר תמיד
+        hide();
       }
     };
-  
     checkToken();
-  
     document.addEventListener("visibilitychange", authService.handleTabExit);
     return () => {
-      document.removeEventListener("visibilitychange", authService.handleTabExit);
+      document.removeEventListener(
+        "visibilitychange",
+        authService.handleTabExit
+      );
       hide();
     };
   }, [show, hide]);
-  
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!email || (!password && !fullName)) {
-      setError("Please fill in all fields");
-      return;
-    }
-
+    setError("");
     setIsLoading(true);
-    show(isLogin ? "מתחבר..." : "נרשם...");
+    show(isLogin ? "מתחבר..." : "מבצע רישום...");
 
     try {
       if (isLogin) {
         const res = await authService.login(email, password);
         localStorage.setItem("token", res.token);
         localStorage.setItem("refreshToken", res.refreshToken);
-
         const role = getRoleFromToken(res.token);
-        navigate(role === "Employee" ? "/employee/signup" :  "/admin", {
+        navigate(role === "Employee" ? "/employee/signup" : "/admin", {
           replace: true,
         });
-        return;
       } else {
         await authService.register(fullName, email, password);
         setIsLogin(true);
         setError("");
-        hide();
-        setIsLoading(false);
       }
     } catch (err: unknown) {
-      console.log("Error:", err);
-      if (err && typeof err === "object" && "response" in err) {
-        const error = err as {
-          response?: {
-            data?: { errors?: Record<string, string[]>; message?: string };
-          };
-        };
-        const errors = error.response?.data?.errors;
-        const message = error.response?.data?.message;
-
-        if (errors) setError(Object.values(errors).flat().join(" "));
-        else if (message) setError(message);
-        else setError("Something went wrong. Please try again.");
-      } else {
-        setError("Something went wrong. Please try again.");
-      }
+      const message =
+        (err as { response?: { data?: { message?: string } } }).response?.data
+          ?.message || "משהו השתבש, נסה שנית";
+      setError(message);
+    } finally {
       hide();
       setIsLoading(false);
     }
@@ -109,38 +91,66 @@ export default function AuthPage() {
 
   const handleResetPassword = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setResetMessage("Reset functionality will be available soon.");
+    setError("");
+    setResetMessage("");
+    show("שולח קישור לשחזור...");
+    try {
+      await authService.forgotPassword(resetEmail);
+      setResetMessage("נשלח קישור לאיפוס סיסמה למייל שלך!");
+      setResetEmail("");
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } }).response?.data
+          ?.message || "שליחת הקישור נכשלה. וודא שהמייל תקין.";
+      setError(message);
+    } finally {
+      hide();
+    }
   };
 
   return (
-    <div className="fixed inset-0 flex justify-center items-center">
+    <div
+      className="fixed inset-0 flex justify-center items-center font-sans"
+      dir="rtl"
+    >
+      {/* רקע */}
       <div
         className="absolute inset-0 bg-cover bg-center -z-10"
         style={{ backgroundImage: "url('/images/background.jpg')" }}
-      ></div>
+      >
+        <div className="absolute inset-0 bg-black/30"></div>{" "}
+        {/* שכבת הצללה לרקע */}
+      </div>
 
-      <main className="w-full max-w-md bg-white/80 p-8 rounded-2xl shadow-2xl backdrop-blur-md">
-        <h1 className="text-5xl font-bold text-center text-gray-800 mb-8">
-          SmartShift
-        </h1>
+      <main className="w-full max-w-md bg-white/90 p-8 rounded-2xl shadow-2xl backdrop-blur-md border border-white/20 text-center">
+        {/* לוגו ושם האולם */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">
+            SmartShift
+          </h1>
+          <div className="h-1 w-20 bg-blue-500 mx-auto mt-2 rounded-full"></div>
+          <p className="text-xl text-gray-700 mt-4 font-medium">
+            ברוכים הבאים ל-ARIA
+          </p>
+        </div>
 
         {!showReset ? (
           <>
-            <h2 className="text-2xl font-semibold text-center text-gray-600 mb-6">
-              {isLogin ? "Welcome Back!" : "Create an Account"}
+            <h2 className="text-lg font-medium text-gray-600 mb-6">
+              {isLogin ? "התחברות למערכת" : "יצירת חשבון חדש"}
             </h2>
 
             {error && (
-              <div className="bg-red-100 text-red-600 p-3 mb-4 rounded-lg text-center">
+              <div className="bg-red-50 text-red-600 p-3 mb-4 rounded-lg text-sm border border-red-100">
                 {error}
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4 w-full px-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               {!isLogin && (
                 <Input
                   type="text"
-                  placeholder="Full Name"
+                  placeholder="שם מלא"
                   value={fullName}
                   onChange={e => setFullName(e.target.value)}
                   required
@@ -148,14 +158,14 @@ export default function AuthPage() {
               )}
               <Input
                 type="email"
-                placeholder="Email"
+                placeholder="אימייל"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
               />
               <Input
                 type="password"
-                placeholder="Password"
+                placeholder="סיסמה"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 minLength={6}
@@ -163,65 +173,72 @@ export default function AuthPage() {
               />
               <button
                 type="submit"
-                className="w-full bg-gradient-to-r from-blue-500 to-teal-400 text-white p-3 rounded-lg hover:from-blue-600 hover:to-teal-500 transition transform hover:scale-105"
+                className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-lg"
                 disabled={isLoading}
               >
-                {isLogin ? "Login" : "Register"}
+                {isLogin ? "כניסה" : "הרשמה"}
               </button>
             </form>
 
-            <div className="mt-4 text-center">
+            <div className="mt-6 space-y-2">
               <button
-                className="text-sm text-gray-600 hover:text-blue-500 transition"
-                onClick={() => setShowReset(true)}
-              >
-                Forgot Password?
-              </button>
-            </div>
-
-            <div className="mt-6 text-center text-gray-600">
-              {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-              <button
-                type="button"
+                className="text-sm text-blue-600 hover:underline block mx-auto"
                 onClick={() => {
-                  setIsLogin(!isLogin);
+                  setShowReset(true);
                   setError("");
                 }}
-                className="text-blue-500 hover:underline font-medium transition"
               >
-                {isLogin ? "Register" : "Login"}
+                שכחתי סיסמה
               </button>
             </div>
           </>
         ) : (
+          /* מסך שחזור סיסמה */
           <>
-            <h2 className="text-2xl font-semibold text-center text-gray-600 mb-6">
-              Reset Password (Coming Soon)
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+              איפוס סיסמה
             </h2>
+
             {resetMessage && (
-              <div className="bg-green-100 text-green-600 p-3 mb-4 rounded-lg text-center">
+              <div className="bg-green-50 text-green-700 p-3 mb-4 rounded-lg text-sm border border-green-200">
                 {resetMessage}
               </div>
             )}
-            <form
-              onSubmit={handleResetPassword}
-              className="space-y-4 w-full px-4"
-            >
+
+            {error && (
+              <div className="bg-red-50 text-red-600 p-3 mb-4 rounded-lg text-sm border border-red-100">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <p className="text-sm text-gray-600 mb-4">
+                הכנס את כתובת המייל שלך ונשלח לך קישור לאיפוס הסיסמה
+              </p>
+              <Input
+                type="email"
+                placeholder="הכנס אימייל"
+                value={resetEmail}
+                onChange={e => setResetEmail(e.target.value)}
+                required
+              />
               <button
                 type="submit"
-                className="w-full bg-gradient-to-r from-blue-500 to-teal-400 text-white p-3 rounded-lg hover:from-blue-600 hover:to-teal-500 transition transform hover:scale-105"
+                className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-lg"
               >
-                Notify Me When Ready
+                שלח קישור לאיפוס
               </button>
             </form>
-            <div className="mt-6 text-center text-gray-600">
-              <button
-                className="text-blue-500 hover:underline font-medium transition"
-                onClick={() => setShowReset(false)}
-              >
-                Back to Login
-              </button>
-            </div>
+
+            <button
+              className="mt-6 text-sm text-gray-500 hover:text-blue-600 font-medium"
+              onClick={() => {
+                setShowReset(false);
+                setError("");
+              }}
+            >
+              חזרה למסך התחברות
+            </button>
           </>
         )}
       </main>

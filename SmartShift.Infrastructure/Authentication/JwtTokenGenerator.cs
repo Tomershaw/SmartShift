@@ -80,8 +80,11 @@ public class JwtTokenGenerator : IJwtTokenGenerator
         // ✅ הוספת ה-Roles
         foreach (var role in roles)
         {
+            Console.WriteLine($"✅ Adding role claim: {role}");
             claims.Add(new Claim("http://schemas.microsoft.com/ws/2008/06/identity/claims/role", role));
         }
+
+        Console.WriteLine($"Total roles added: {roles.Count}");
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {

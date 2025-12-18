@@ -5,12 +5,16 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   css: {
-    postcss: "./postcss.config.js", // טוען את הקובץ PostCSS בו מוגדר Tailwind
+    postcss: "./postcss.config.js",
   },
-  build: {
-    outDir: "../SmartShift.Api/wwwroot",
-    emptyOutDir: true,
-  },
+
+  // --- מחקנו את החלק הזה כדי שיבנה לתיקיית dist ---
+  // build: {
+  //   outDir: "../SmartShift.Api/wwwroot",
+  //   emptyOutDir: true,
+  // },
+  // ------------------------------------------------
+
   server: {
     proxy: {
       "/api": {

@@ -50,38 +50,42 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
 
+      // if (!token) {
+      //   console.log("🚪 No token available – logging out");
+      //   logout();
+      //   setLoading(false);
+      //   return;
+      // }
+
       if (!token) {
-        console.log("🚪 No token available – logging out");
-        logout();
-        setLoading(false);
-        return;
+        setLoading(false); // פשוט מאשרים שהטעינה נגמרה
+        return; // ועוצרים כאן. זה הכל.
       }
 
       try {
         const payload = JSON.parse(atob(token.split(".")[1]));
-        
+
         const role =
           payload[
             "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
           ] || payload.role;
-        
+
         // 🔥 הוסף Gender!
         const gender =
           payload[
             "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/gender"
           ] || payload.gender;
 
-        setUser({ 
-          email: payload.email, 
-          role, 
-          gender,  // 🔥
-          exp: payload.exp * 1000 
+        setUser({
+          email: payload.email,
+          role,
+          gender, // 🔥
+          exp: payload.exp * 1000,
         });
-        
+
         // 🔥 הדפס לוודא
         console.log("✅ User restored from token");
         console.log("👤 Gender:", gender);
-        
       } catch (err) {
         console.error("❌ Failed to parse token payload", err);
         logout();

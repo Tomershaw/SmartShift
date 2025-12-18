@@ -26,7 +26,13 @@ type NumberStepperProps = {
   max: number;
 };
 
-function NumberStepper({ label, value, onChange, min, max }: NumberStepperProps) {
+function NumberStepper({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+}: NumberStepperProps) {
   const dec = () => {
     if (value > min) onChange(value - 1);
   };
@@ -136,7 +142,10 @@ export default function AdminEmployeeParametersPage() {
         adminNotes: adminNotes.trim() || null,
       };
 
-      const res = await employeeParametersApi.updateParameters(employeeId, payload);
+      const res = await employeeParametersApi.updateParameters(
+        employeeId,
+        payload
+      );
 
       if (res.success) {
         alert("נשמר בהצלחה.");
@@ -154,7 +163,9 @@ export default function AdminEmployeeParametersPage() {
   return (
     <div dir="rtl" className="mx-auto max-w-3xl p-6 space-y-6">
       <header>
-        <h1 className="text-2xl font-extrabold text-slate-900">עדכון פרמטרים לעובד</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900">
+          עדכון פרמטרים לעובד
+        </h1>
       </header>
 
       <form
@@ -163,9 +174,8 @@ export default function AdminEmployeeParametersPage() {
       >
         {/* Stepper grid */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-
           <NumberStepper
-            label="Skill Level (1–5)"
+            label="רמת מיומנות (1–5)"
             value={skillLevel}
             min={1}
             max={5}
@@ -173,7 +183,7 @@ export default function AdminEmployeeParametersPage() {
           />
 
           <NumberStepper
-            label="Priority Rating (≥ 0)"
+            label="דירוג עדיפות"
             value={priorityRating}
             min={0}
             max={999}
@@ -181,13 +191,12 @@ export default function AdminEmployeeParametersPage() {
           />
 
           <NumberStepper
-            label="Max Shifts / Week (≥ 0)"
+            label="מכסת משמרות שבועית"
             value={maxShiftsPerWeek}
             min={0}
             max={999}
             onChange={setMaxShiftsPerWeek}
           />
-
         </div>
 
         {/* Notes */}
@@ -196,7 +205,7 @@ export default function AdminEmployeeParametersPage() {
           <textarea
             rows={3}
             value={adminNotes}
-            onChange={(e) => setAdminNotes(e.target.value)}
+            onChange={e => setAdminNotes(e.target.value)}
             className="mt-1 w-full border rounded-xl px-3 py-2"
           />
         </label>

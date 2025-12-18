@@ -11,7 +11,6 @@ using SmartShift.Api.Services;
 using SmartShift.Application;
 using SmartShift.Application.Common.Behaviors;
 using SmartShift.Application.Common.Interfaces;
-using SmartShift.Application.Features.Scheduling.RegisterForShift;
 using SmartShift.Application.Features.UserManagement.CreateUser;
 using SmartShift.Domain.Data;
 using SmartShift.Domain.Services;
@@ -22,6 +21,13 @@ using SmartShift.Infrastructure.Repositories;
 using System.Reflection;
 using System.Security.Claims;
 using System.Text;
+using SmartShift.Infrastructure.Email;
+
+
+using SmartShift.Infrastructure.Interfaces;
+
+
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -57,12 +63,7 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddApplication();
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        sqlOptions => sqlOptions.EnableRetryOnFailure(
-            maxRetryCount: 5,
-            maxRetryDelay: TimeSpan.FromSeconds(30),
-            errorNumbersToAdd: null)));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
 {
@@ -205,6 +206,11 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<EmployeeShiftMatchingService>();
 builder.Services.AddScoped<ShiftScoringService>();
+builder.Services.AddScoped<SmartShift.Infrastructure.Interfaces.IEmailSender,
+    SmartShift.Infrastructure.Email.BrevoSmtpEmailSender>();
+
+
+
 
 
 // ✅ AI Services
@@ -233,7 +239,7 @@ if (app.Environment.IsDevelopment())
     using (var scope = app.Services.CreateScope())
     {
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        context.Database.Migrate();
+        //context.Database.Migrate();
     }
 
 

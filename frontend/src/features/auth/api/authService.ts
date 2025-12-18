@@ -15,7 +15,6 @@ const login = async (
   return {
     token: response.data.token,
     refreshToken: response.data.refreshToken,
-    
   };
 };
 
@@ -32,8 +31,12 @@ const register = async (
   return response.data.message;
 };
 
-const resetPassword = async (): Promise<string> => {
-  return Promise.resolve("Reset link sent to your email.");
+const forgotPassword = async (email: string): Promise<void> => {
+  await api.post("/account/forgot-password", { email });
+};
+
+const resetPassword = async (payload: { email: string; token: string; newPassword: string }): Promise<void> => {
+  await api.post("/account/reset-password", payload);
 };
 
 //const validateToken = async (): Promise<boolean> => {
@@ -46,19 +49,17 @@ const resetPassword = async (): Promise<string> => {
 //};
 
 const validtoken = async () => {
-
   const token = localStorage.getItem("token");
-  if(!token) return true;
-  try{
-    await api.get("scheduling/employees",{
-      headers:{Authorization:`Bearer ${token}`}
-    })
+  if (!token) return true;
+  try {
+    await api.get("scheduling/employees", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     return true;
   } catch {
-    return  false;
+    return false;
   }
-}
-
+};
 
 export const logout = async () => {
   const token = localStorage.getItem("token");
@@ -88,7 +89,6 @@ export const logout = async () => {
   }
 };
 
-
 const handleTabExit = () => {
   if (document.visibilityState === "hidden") {
     console.log("🧹 authService.handleTabExit triggered");
@@ -112,13 +112,22 @@ const validateToken = async (): Promise<boolean> => {
 
   try {
     await api.get("/scheduling/employees", {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token}` },
     });
     return true;
   } catch {
     return false;
   }
 };
-  
 
-export default { login, register, resetPassword, validateToken, validtoken,logout,handleTabExit,isTokenExpired };
+export default {
+  login,
+  register,
+  forgotPassword,
+  validateToken,
+  validtoken,
+  logout,
+  handleTabExit,
+  isTokenExpired,
+  resetPassword
+};

@@ -1,6 +1,7 @@
 // src/App.tsx
 import { Routes, Route, Navigate } from "react-router-dom";
 import AuthPage from "./features/auth/components/AuthPage";
+import ResetPasswordPage from "./features/auth/components/ResetPasswordPage"; // <--- 1. הוסף את השורה הזו
 import { ProtectedRoute } from "./features/auth/components/ProtectedRoute";
 import EmployeeSignupPage from "./features/scheduling/components/EmployeeSignupPage";
 import AdminDashboardPage from "./features/scheduling/admin/pages/AdminDashboardPage";
@@ -19,6 +20,9 @@ function App() {
     <Routes>
       {/* הזדהות */}
       <Route path="/auth" element={<AuthPage />} />
+      {/* שחזור סיסמה - פתוח לכולם */}
+      <Route path="/reset-password" element={<ResetPasswordPage />} />{" "}
+      {/* <--- 2. הוסף את השורה הזו */}
       {/* מנהל/מנג'ר - דף מנהל */}
       <Route
         path="/admin"
@@ -98,7 +102,6 @@ function App() {
           </ProtectedRoute>
         }
       />
-      // App.tsx - הוסף מתחת לשאר דפי האדמין
       <Route
         path="/admin/registrations"
         element={

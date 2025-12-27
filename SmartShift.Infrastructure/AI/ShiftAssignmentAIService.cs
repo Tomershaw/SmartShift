@@ -69,7 +69,7 @@ public class ShiftAssignmentAIService : IShiftAssignmentAIService
                 You are an intelligent shift assignment system.
 
                 Shift:
-                - Time: {shift.StartTime:yyyy-MM-dd HH:mm}
+                - Time: {shift.StartTime.DateTime:yyyy-MM-dd HH:mm}
                 - Required: {shift.RequiredEmployeeCount}
                 - Minimum: {shift.MinimumEmployeeCount}
                 - Minimum Early: {shift.MinimumEarlyEmployees}
@@ -131,7 +131,7 @@ public class ShiftAssignmentAIService : IShiftAssignmentAIService
         // Fetch DB data needed for Weekly Limit check
         // ========================================
         var tenantId = shift.TenantId ?? throw new InvalidOperationException("Shift must have tenant ID");
-        var snapshot = await _shiftRepository.GetWeekAssignmentsSnapshotAsync(tenantId, shift.StartTime, cancellationToken);
+        var snapshot = await _shiftRepository.GetWeekAssignmentsSnapshotAsync(tenantId, shift.StartTime.DateTime, cancellationToken);
 
         // ========================================
         // STEP 3: Strict Mode Filtering
@@ -406,9 +406,8 @@ public class ShiftAssignmentAIService : IShiftAssignmentAIService
             var regularCount = assigned.Count(p => p.Arrival == EmployeeShiftAvailability.Regular);
             var meetsEarlyRequirement = earlyCount >= shift.MinimumEarlyEmployees;
 
-            var israelTz = TimeZoneInfo.FindSystemTimeZoneById("Israel Standard Time");
-            var local = TimeZoneInfo.ConvertTimeFromUtc(
-              DateTime.SpecifyKind(shift.StartTime, DateTimeKind.Utc), israelTz);
+            var israelTz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Jerusalem");
+            var local = TimeZoneInfo.ConvertTime(shift.StartTime, israelTz);
             var localDate = local.ToString("dd.MM.yyyy");
             var localTime = local.ToString("HH:mm");
 

@@ -9,7 +9,7 @@ public class Shift
 {
     public Guid Id { get; private set; }
     public string Name { get; set; } = string.Empty;
-    public DateTime StartTime { get; private set; }
+    public DateTimeOffset StartTime { get; private set; }
     // public DateTime EndTime { get; private set; }
     public int MinimumEarlyEmployees { get; set; } // עמודה חדשה
     public int RequiredEmployeeCount { get; private set; } // מספר העובדים הנדרש
@@ -28,7 +28,7 @@ public class Shift
 
     private Shift() { } // For EF Core
 
-    public Shift(DateTime startTime, int requiredEmployeeCount, int minimumEmployeeCount, int skillLevelRequired, string description, int minimumEarlyEmployees)
+    public Shift(DateTimeOffset startTime, int requiredEmployeeCount, int minimumEmployeeCount, int skillLevelRequired, string description, int minimumEarlyEmployees)
     {
         if (requiredEmployeeCount < 1)
             throw new ArgumentException("Required employee count must be at least 1");

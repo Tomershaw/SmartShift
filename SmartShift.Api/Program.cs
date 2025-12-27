@@ -27,7 +27,6 @@ using SmartShift.Infrastructure.Email;
 using SmartShift.Infrastructure.Interfaces;
 
 
-AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 

@@ -48,14 +48,12 @@ public class GetEmployeeShiftsQueryHandler : IRequestHandler<GetEmployeeShiftsQu
             catch { ilTz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Jerusalem"); }
 
             // חישוב גבולות UTC שקולים לימים בישראל: [utcStart, utcEndExclusive)
-            static DateTime ToLocalMidnight(DateOnly d)
-                => new DateTime(d.Year, d.Month, d.Day, 0, 0, 0, DateTimeKind.Unspecified);
 
-            var startLocal = ToLocalMidnight(request.StartDate);
-            var endLocalExclusive = ToLocalMidnight(request.EndDate.AddDays(1));
+            var startLocal = new DateTime(request.StartDate.Year, request.StartDate.Month, request.StartDate.Day, 0, 0, 0);
+            var endLocal = new DateTime(request.EndDate.Year, request.EndDate.Month, request.EndDate.Day, 0, 0, 0).AddDays(1);
 
-            var utcStart = TimeZoneInfo.ConvertTimeToUtc(startLocal, ilTz);
-            var utcEndExclusive = TimeZoneInfo.ConvertTimeToUtc(endLocalExclusive, ilTz);
+            var utcStart = new DateTimeOffset(startLocal, ilTz.GetUtcOffset(startLocal)).ToUniversalTime();
+            var utcEndExclusive = new DateTimeOffset(endLocal, ilTz.GetUtcOffset(endLocal)).ToUniversalTime();
 
             // שליפת הרשמות בטווח לפי StartTime UTC
             // שליפת כל ההרשמות בטווח, ממוין כך שהאחרונה (UpdatedAt או RegisteredAt) בסוף

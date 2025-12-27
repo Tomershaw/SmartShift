@@ -29,12 +29,19 @@ public sealed class GetRegistrationsSnapshotQueryHandler
         // ממירים טווח ימים מקומי לגבולות UTC לשאילתת DB
         var tz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Jerusalem");
 
-        DateTime ToUtc(DateOnly d) =>
-            TimeZoneInfo.ConvertTimeToUtc(d.ToDateTime(TimeOnly.MinValue), tz);
+        // DateTime ToUtc(DateOnly d) =>
+        //    TimeZoneInfo.ConvertTimeToUtc(d.ToDateTime(TimeOnly.MinValue), tz);
 
         // startUtc כולל, endUtc בלעדי
-        var startUtc = ToUtc(request.FromLocal);
-        var endUtcExclusive = ToUtc(request.ToLocal.AddDays(1));
+        //  var startUtc = ToUtc(request.FromLocal);
+        //   var endUtcExclusive = ToUtc(request.ToLocal.AddDays(1));
+
+        // המרה מ-DateOnly ל-DateTimeOffset
+        var startLocal = new DateTime(request.FromLocal.Year, request.FromLocal.Month, request.FromLocal.Day, 0, 0, 0);
+        var endLocal = new DateTime(request.ToLocal.Year, request.ToLocal.Month, request.ToLocal.Day, 0, 0, 0).AddDays(1);
+
+        var startUtc = new DateTimeOffset(startLocal, tz.GetUtcOffset(startLocal)).ToUniversalTime();
+        var endUtcExclusive = new DateTimeOffset(endLocal, tz.GetUtcOffset(endLocal)).ToUniversalTime();
 
         // שולפים משמרות בטווח כולל הרשמות
         var shifts = await _shiftRepository.GetShiftsInDateRangeAsync(
@@ -47,7 +54,7 @@ public sealed class GetRegistrationsSnapshotQueryHandler
         var grouped = shifts
             .GroupBy(s =>
             {
-                var local = TimeZoneInfo.ConvertTimeFromUtc(s.StartTime, tz);
+                var local = TimeZoneInfo.ConvertTime(s.StartTime, tz);
                 return DateOnly.FromDateTime(local.Date);
             })
             .OrderBy(g => g.Key);

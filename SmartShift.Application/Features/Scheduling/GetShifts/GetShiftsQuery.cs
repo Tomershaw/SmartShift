@@ -6,7 +6,7 @@ public record GetShiftsQuery(string StartDate, string EndDate) : IRequest<IEnume
 
 public record ShiftDto(
     string Id,
-    DateTime StartTime,
+    DateTimeOffset StartTime,
     string? AssignedEmployeeId
 ); 
 

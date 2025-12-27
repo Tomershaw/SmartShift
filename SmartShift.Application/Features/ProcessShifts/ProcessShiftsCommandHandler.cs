@@ -26,220 +26,206 @@ public class ProcessShiftsCommandHandler
     }
 
     public async Task<ProcessShiftsResult> Handle(ProcessShiftsCommand request, CancellationToken ct)
-{
-    var (start, end) = ResolveRangeOrDefault(request.StartString, request.EndString, _logger);
-    var result = new ProcessShiftsResult();
-
-    using (_logger.BeginScope(new Dictionary<string, object?>
     {
-        ["TenantId"] = request.TenantId,
-        ["Start"] = start,
-        ["End"] = end
-    }))
-    {
-        _logger.LogInformation("Processing shifts. Tenant={TenantId}, Range={Start:yyyy-MM-dd}..{End:yyyy-MM-dd HH:mm}",
-            request.TenantId, start, end);
+        var (start, end) = ResolveRangeOrDefault(request.StartString, request.EndString, _logger);
+        var result = new ProcessShiftsResult();
 
-        var shifts = await _shiftRepository.GetShiftsInDateRangeAsync(start, end, request.TenantId, ct);
-        if (!shifts.Any())
+        using (_logger.BeginScope(new Dictionary<string, object?>
         {
-            _logger.LogWarning("No shifts found for tenant {TenantId} in range {Start}..{End}",
+            ["TenantId"] = request.TenantId,
+            ["Start"] = start,
+            ["End"] = end
+        }))
+        {
+            _logger.LogInformation("Processing shifts. Tenant={TenantId}, Range={Start:yyyy-MM-dd}..{End:yyyy-MM-dd HH:mm}",
                 request.TenantId, start, end);
-            result.Message = "No shifts found in the specified date range.";
-            return result;
-        }
 
-        foreach (var shift in shifts.OrderBy(s => s.StartTime))
-        {
-            using (_logger.BeginScope(new Dictionary<string, object?>
+            var shifts = await _shiftRepository.GetShiftsInDateRangeAsync(start, end, request.TenantId, ct);
+            if (!shifts.Any())
             {
-                ["ShiftId"] = shift.Id,
-                ["ShiftStart"] = shift.StartTime
-            }))
-            {
-                var approvedCount = await _shiftRepository.GetApprovedEmployeesCountAsync(shift.Id, request.TenantId, ct);
-                var pendingRegs = (await _shiftRepository.GetPendingRegistrationsAsync(request.TenantId, shift.Id, ct)).ToList();
-                var required = shift.RequiredEmployeeCount;
-                var pendingCount = pendingRegs.Count;
-                var remainingNeeded = Math.Max(0, required - approvedCount);
+                _logger.LogWarning("No shifts found for tenant {TenantId} in range {Start}..{End}",
+                    request.TenantId, start, end);
+                result.Message = "No shifts found in the specified date range.";
+                return result;
+            }
 
-                if (pendingCount == 0 || remainingNeeded == 0)
+            foreach (var shift in shifts.OrderBy(s => s.StartTime))
+            {
+                using (_logger.BeginScope(new Dictionary<string, object?>
                 {
-                    if (pendingCount == 0)
-                        _logger.LogInformation("No pending regs. Approved={Approved}, Required={Required}", approvedCount, required);
+                    ["ShiftId"] = shift.Id,
+                    ["ShiftStart"] = shift.StartTime
+                }))
+                {
+                    var approvedCount = await _shiftRepository.GetApprovedEmployeesCountAsync(shift.Id, request.TenantId, ct);
+                    var pendingRegs = (await _shiftRepository.GetPendingRegistrationsAsync(request.TenantId, shift.Id, ct)).ToList();
+                    var required = shift.RequiredEmployeeCount;
+                    var pendingCount = pendingRegs.Count;
+                    var remainingNeeded = Math.Max(0, required - approvedCount);
+
+                    if (pendingCount == 0 || remainingNeeded == 0)
+                    {
+                        if (pendingCount == 0)
+                            _logger.LogInformation("No pending regs. Approved={Approved}, Required={Required}", approvedCount, required);
+                        else
+                            _logger.LogInformation("Already satisfied. Approved={Approved}, Required={Required}", approvedCount, required);
+
+                        result.Results.Add(new
+                        {
+                            shiftId = shift.Id,
+                            required = shift.RequiredEmployeeCount,
+                            minimum = shift.MinimumEmployeeCount,
+                            minimumEarly = shift.MinimumEarlyEmployees,
+                            approvedCount,
+                            pendingCount,
+                            remainingNeeded,
+                            plannedCount = 0,
+                            plannedEarlyCount = 0,
+                            plannedRegularCount = 0,
+                            meetsMinimumEarly = false
+                        });
+                        continue;
+                    }
+
+                    var arrivalByEmployee = pendingRegs
+                        .Where(r => r.Employee != null)
+                        .GroupBy(r => r.Employee!.Id)
+                        .ToDictionary(
+                            g => g.Key,
+                            g => g.Any(r => r.ShiftArrivalType == EmployeeShiftAvailability.Early)
+                                    ? EmployeeShiftAvailability.Early
+                                    : EmployeeShiftAvailability.Regular
+                        );
+
+                    var employeesById = pendingRegs
+                        .Where(r => r.Employee != null)
+                        .GroupBy(r => r.Employee!.Id)
+                        .ToDictionary(g => g.Key, g => g.First().Employee!);
+
+                    var peopleForAI = employeesById
+                        .Select(kvp => (Emp: kvp.Value, Arrival: arrivalByEmployee[kvp.Key]))
+                        .ToList();
+
+                    var aiOrdered = (await _aiService.GetRecommendedEmployeesAsync(shift, peopleForAI, ct)).ToList();
+
+                    var earlyIds = new HashSet<Guid>(
+                        arrivalByEmployee
+                            .Where(kvp => kvp.Value == EmployeeShiftAvailability.Early)
+                            .Select(kvp => kvp.Key)
+                    );
+
+                    var regularIds = new HashSet<Guid>(
+                        arrivalByEmployee
+                            .Where(kvp => kvp.Value == EmployeeShiftAvailability.Regular)
+                            .Select(kvp => kvp.Key)
+                    );
+
+                    var earlyEmployees = aiOrdered.Where(e => earlyIds.Contains(e.Id)).ToList();
+                    var regularEmployees = aiOrdered.Where(e => regularIds.Contains(e.Id)).ToList();
+
+                    var earlyMin = shift.MinimumEarlyEmployees;
+                    var earlyNeeded = Math.Min(earlyMin, remainingNeeded);
+
+                    var planned = new List<Employee>();
+                    var taken = new HashSet<Guid>();
+
+                    foreach (var e in earlyEmployees)
+                    {
+                        if (planned.Count >= earlyNeeded) break;
+                        if (taken.Add(e.Id))
+                            planned.Add(e);
+                    }
+
+                    var completionPool = regularEmployees
+                        .Concat(earlyEmployees.Where(e => !taken.Contains(e.Id)))
+                        .Where(e => !taken.Contains(e.Id))
+                        .ToList();
+
+                    foreach (var e in completionPool)
+                    {
+                        if (planned.Count >= remainingNeeded) break;
+                        if (taken.Add(e.Id))
+                            planned.Add(e);
+                    }
+
+                    var plannedWithArrival = planned
+                        .Select(e => new
+                        {
+                            id = e.Id,
+                            name = $"{e.FirstName} {e.LastName}",
+                            skillLevel = e.SkillLevel,
+                            priorityRating = e.PriorityRating,
+                            arrivalType = arrivalByEmployee.TryGetValue(e.Id, out var at)
+                                            ? (at == EmployeeShiftAvailability.Early ? "Early" : "Regular")
+                                            : "Unknown"
+                        })
+                        .ToList();
+
+                    var plannedEarlyCount = plannedWithArrival.Count(x => x.arrivalType == "Early");
+                    var plannedRegularCount = plannedWithArrival.Count(x => x.arrivalType == "Regular");
+                    var meetsMinimumEarly = plannedEarlyCount >= shift.MinimumEarlyEmployees;
+
+                    var plannedCount = plannedWithArrival.Count;
+                    var finalRemaining = Math.Max(0, required - approvedCount - plannedCount);
+
+                    if (approvedCount + plannedCount < shift.MinimumEmployeeCount)
+                        _logger.LogWarning("Below minimum after planning. Approved={Approved}, Planned={Planned}, Minimum={Minimum}",
+                            approvedCount, plannedCount, shift.MinimumEmployeeCount);
                     else
-                        _logger.LogInformation("Already satisfied. Approved={Approved}, Required={Required}", approvedCount, required);
+                        _logger.LogInformation("Planned {Planned}. Approved={Approved}, Required={Required}, Pending={Pending}",
+                            plannedCount, approvedCount, required, pendingCount);
+
+                    if (!meetsMinimumEarly && earlyMin > 0)
+                        _logger.LogWarning("Not enough Early employees. RequiredEarly={RequiredEarly}, PlannedEarly={PlannedEarly}, ShiftId={ShiftId}",
+                            earlyMin, plannedEarlyCount, shift.Id);
+
+                    var plannedPeople = planned.Select(e =>
+                    {
+                        var arrival = arrivalByEmployee.TryGetValue(e.Id, out var at)
+                            ? at
+                            : EmployeeShiftAvailability.Regular;
+                        return (Emp: e, Arrival: arrival);
+                    }).ToList();
+
+                    var analysis = await _aiService.AnalyzeShiftRequirementsAsync(shift, plannedPeople, ct);
+                    var summary = await _aiService.GenerateShiftSummaryAsync(shift, plannedPeople, ct);
 
                     result.Results.Add(new
                     {
                         shiftId = shift.Id,
+                        startTime = shift.StartTime.ToString("o"),
                         required = shift.RequiredEmployeeCount,
                         minimum = shift.MinimumEmployeeCount,
                         minimumEarly = shift.MinimumEarlyEmployees,
                         approvedCount,
                         pendingCount,
-                        remainingNeeded,
-                        plannedCount = 0,
-                        plannedEarlyCount = 0,
-                        plannedRegularCount = 0,
-                        meetsMinimumEarly = false
+                        remainingNeeded = finalRemaining,
+                        plannedCount,
+                        plannedEarlyCount,
+                        plannedRegularCount,
+                        meetsMinimumEarly,
+                        planned = plannedWithArrival,
+                        analysis,
+                        summary
                     });
-                    continue;
                 }
-
-                // 🗑️ מחקתי את השורות האלה:
-                // var earlyRegs = pendingRegs.Where(r => r.ShiftArrivalType == EmployeeShiftAvailability.Early).ToList();
-                // var regularRegs = pendingRegs.Where(r => r.ShiftArrivalType == EmployeeShiftAvailability.Regular).ToList();
-                // var earlyEmployees = earlyRegs.Select(r => r.Employee!).Where(e => e != null).DistinctBy(e => e.Id).ToList();
-                // var regularEmployees = regularRegs.Select(r => r.Employee!).Where(e => e != null).DistinctBy(e => e.Id).ToList();
-
-                var arrivalByEmployee = pendingRegs
-                    .Where(r => r.Employee != null)
-                    .GroupBy(r => r.Employee!.Id)
-                    .ToDictionary(
-                        g => g.Key,
-                        g => g.Any(r => r.ShiftArrivalType == EmployeeShiftAvailability.Early)
-                                ? EmployeeShiftAvailability.Early
-                                : EmployeeShiftAvailability.Regular
-                    );
-
-                var employeesById = pendingRegs
-                    .Where(r => r.Employee != null)
-                    .GroupBy(r => r.Employee!.Id)
-                    .ToDictionary(g => g.Key, g => g.First().Employee!);
-
-                var peopleForAI = employeesById
-                    .Select(kvp => (Emp: kvp.Value, Arrival: arrivalByEmployee[kvp.Key]))
-                    .ToList();
-
-                var aiOrdered = (await _aiService.GetRecommendedEmployeesAsync(shift, peopleForAI, ct)).ToList();
-
-                // 🟢 הוספתי את השורות האלה:
-                var earlyIds = new HashSet<Guid>(
-                    arrivalByEmployee
-                        .Where(kvp => kvp.Value == EmployeeShiftAvailability.Early)
-                        .Select(kvp => kvp.Key)
-                );
-
-                var regularIds = new HashSet<Guid>(
-                    arrivalByEmployee
-                        .Where(kvp => kvp.Value == EmployeeShiftAvailability.Regular)
-                        .Select(kvp => kvp.Key)
-                );
-
-                var earlyEmployees = aiOrdered.Where(e => earlyIds.Contains(e.Id)).ToList();
-                var regularEmployees = aiOrdered.Where(e => regularIds.Contains(e.Id)).ToList();
-
-                // 🗑️ מחקתי את השורות האלה:
-                // var rank = aiOrdered.Select((e, i) => new { e.Id, i }).ToDictionary(x => x.Id, x => x.i);
-                // List<T> SortByAi<T>(IEnumerable<T> src, Func<T, Guid> key) =>
-                //     src.OrderBy(x => rank.TryGetValue(key(x), out var i) ? i : int.MaxValue).ToList();
-                // earlyEmployees = SortByAi(earlyEmployees, e => e.Id);
-                // regularEmployees = SortByAi(regularEmployees, e => e.Id);
-
-                var earlyMin = shift.MinimumEarlyEmployees;
-                var earlyNeeded = Math.Min(earlyMin, remainingNeeded);
-
-                var planned = new List<Employee>();
-                var taken = new HashSet<Guid>();
-
-                foreach (var e in earlyEmployees)
-                {
-                    if (planned.Count >= earlyNeeded) break;
-                    if (taken.Add(e.Id))
-                        planned.Add(e);
-                }
-
-                var completionPool = regularEmployees
-                    .Concat(earlyEmployees.Where(e => !taken.Contains(e.Id)))
-                    .Where(e => !taken.Contains(e.Id))
-                    .ToList();
-
-                foreach (var e in completionPool)
-                {
-                    if (planned.Count >= remainingNeeded) break;
-                    if (taken.Add(e.Id))
-                        planned.Add(e);
-                }
-
-                var plannedWithArrival = planned
-                    .Select(e => new
-                    {
-                        id = e.Id,
-                        name = $"{e.FirstName} {e.LastName}",
-                        skillLevel = e.SkillLevel,
-                        priorityRating = e.PriorityRating,
-                        arrivalType = arrivalByEmployee.TryGetValue(e.Id, out var at)
-                                        ? (at == EmployeeShiftAvailability.Early ? "Early" : "Regular")
-                                        : "Unknown"
-                    })
-                    .ToList();
-
-                var plannedEarlyCount = plannedWithArrival.Count(x => x.arrivalType == "Early");
-                var plannedRegularCount = plannedWithArrival.Count(x => x.arrivalType == "Regular");
-                var meetsMinimumEarly = plannedEarlyCount >= shift.MinimumEarlyEmployees;
-
-                var plannedCount = plannedWithArrival.Count;
-                var finalRemaining = Math.Max(0, required - approvedCount - plannedCount);
-
-                if (approvedCount + plannedCount < shift.MinimumEmployeeCount)
-                    _logger.LogWarning("Below minimum after planning. Approved={Approved}, Planned={Planned}, Minimum={Minimum}",
-                        approvedCount, plannedCount, shift.MinimumEmployeeCount);
-                else
-                    _logger.LogInformation("Planned {Planned}. Approved={Approved}, Required={Required}, Pending={Pending}",
-                        plannedCount, approvedCount, required, pendingCount);
-
-                if (!meetsMinimumEarly && earlyMin > 0)
-                    _logger.LogWarning("Not enough Early employees. RequiredEarly={RequiredEarly}, PlannedEarly={PlannedEarly}, ShiftId={ShiftId}",
-                        earlyMin, plannedEarlyCount, shift.Id);
-
-                var plannedPeople = planned.Select(e =>
-                {
-                    var arrival = arrivalByEmployee.TryGetValue(e.Id, out var at)
-                        ? at
-                        : EmployeeShiftAvailability.Regular;
-                    return (Emp: e, Arrival: arrival);
-                }).ToList();
-
-                var analysis = await _aiService.AnalyzeShiftRequirementsAsync(shift, plannedPeople, ct);
-                var summary = await _aiService.GenerateShiftSummaryAsync(shift, plannedPeople, ct);
-
-                result.Results.Add(new
-                {
-                    shiftId = shift.Id,
-                    startTime = new DateTimeOffset(DateTime.SpecifyKind(shift.StartTime, DateTimeKind.Utc)).ToString("o"),
-                    required = shift.RequiredEmployeeCount,
-                    minimum = shift.MinimumEmployeeCount,
-                    minimumEarly = shift.MinimumEarlyEmployees,
-                    approvedCount,
-                    pendingCount,
-                    remainingNeeded = finalRemaining,
-                    plannedCount,
-                    plannedEarlyCount,
-                    plannedRegularCount,
-                    meetsMinimumEarly,
-                    planned = plannedWithArrival,
-                    analysis,
-                    summary
-                });
             }
-        }
 
-        _logger.LogInformation("Processing completed. ShiftsProcessed={Count}", result.Results.Count);
-        return result;
+            _logger.LogInformation("Processing completed. ShiftsProcessed={Count}", result.Results.Count);
+            return result;
+        }
     }
-}
 
     // ברירת מחדל לטווח: אם חסרים תאריכים → ראשון עד חמישי של השבוע הבא (UTC)
     // מחזיר startUtc (inclusive) ו-endExclusiveUtc (exclusive)
-    private static (DateTime start, DateTime endExclusive) ResolveRangeOrDefault(
+    private static (DateTimeOffset start, DateTimeOffset endExclusive) ResolveRangeOrDefault(
         string? startStr, string? endStr, ILogger logger)
     {
         // ברירת מחדל: ראשון-חמישי של השבוע הבא (תאריכים בלי שעה)
-        var nowUtc = DateTime.UtcNow;
+        var nowUtc = DateTimeOffset.UtcNow;
 
-        DateTime start;
-        if (!DateTime.TryParse(startStr, out start))
+        DateTimeOffset start;
+        if (!DateTimeOffset.TryParse(startStr, out start))
         {
             int daysToNextSunday = ((int)DayOfWeek.Sunday - (int)nowUtc.DayOfWeek + 7) % 7;
             start = nowUtc.Date.AddDays(daysToNextSunday); // ראשון הבא 00:00
@@ -247,11 +233,11 @@ public class ProcessShiftsCommandHandler
         }
         else
         {
-            start = start.Date; // אם נתנו תאריך בלי שעה - ננרמל ל-00:00
+            start = new DateTimeOffset(start.Date, start.Offset); // אם נתנו תאריך בלי שעה - ננרמל ל-00:00
         }
 
-        DateTime end;
-        if (!DateTime.TryParse(endStr, out end))
+        DateTimeOffset end;
+        if (!DateTimeOffset.TryParse(endStr, out end))
         {
             end = start.Date.AddDays(5); // חמישי הבא + 1 יום -> סוף-יום בלעדי
             logger.LogDebug("End not provided/invalid. Using Thursday end-exclusive {End:yyyy-MM-dd}", end);
@@ -259,16 +245,15 @@ public class ProcessShiftsCommandHandler
         else
         {
             // אם הגיע תאריך בלי שעה -> נעשה end-exclusive של היום הבא
-            end = end.TimeOfDay == TimeSpan.Zero ? end.Date.AddDays(1) : end;
+            end = end.TimeOfDay == TimeSpan.Zero ? new DateTimeOffset(end.Date.AddDays(1), end.Offset) : end;
         }
 
         if (end <= start)
         {
-            end = start.Date.AddDays(5); // end-exclusive של חמישי
+            end = new DateTimeOffset(start.Date.AddDays(5), start.Offset); // end-exclusive של חמישי
             logger.LogWarning("End <= Start. Normalized endExclusive to {End:yyyy-MM-dd}", end);
         }
 
         return (start, end); // שים לב: end הוא end-exclusive
     }
-
 }

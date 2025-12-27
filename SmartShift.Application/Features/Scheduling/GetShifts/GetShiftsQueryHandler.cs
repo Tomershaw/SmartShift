@@ -43,13 +43,13 @@ public class GetShiftsQueryHandler : IRequestHandler<GetShiftsQuery, IEnumerable
         }
 
         // DateTime parsing with validation
-        if (!DateTime.TryParse(request.StartDate, out var startDate))
+        if (!DateTimeOffset.TryParse(request.StartDate, out var startDate))
         {
             _logger.LogWarning("Invalid start date format: {StartDate}", request.StartDate);
             throw new ArgumentException($"Invalid start date format: {request.StartDate}", nameof(request.StartDate));
         }
 
-        if (!DateTime.TryParse(request.EndDate, out var endDate))
+        if (!DateTimeOffset.TryParse(request.EndDate, out var endDate))
         {
             _logger.LogWarning("Invalid end date format: {EndDate}", request.EndDate);
             throw new ArgumentException($"Invalid end date format: {request.EndDate}", nameof(request.EndDate));

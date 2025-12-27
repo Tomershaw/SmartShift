@@ -12,7 +12,7 @@ public class GetEmployeeShiftsResult
 public record EmployeeShiftDto
 {
     public string ShiftId { get; init; } = string.Empty;
-    public DateTime StartTime { get; init; }
+    public DateTimeOffset StartTime { get; init; }
     public string? ShiftName { get; init; }
     public string? Description { get; init; }
     public int RequiredEmployeeCount { get; init; }

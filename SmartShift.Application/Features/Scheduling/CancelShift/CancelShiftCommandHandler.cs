@@ -23,8 +23,8 @@ public sealed class CancelShiftCommandHandler
     public async Task<CancelShiftResult> Handle(CancelShiftCommand request, CancellationToken cancellationToken)
     {
         var tenantId = _currentUserService.GetTenantId();
-
         var shift = await _shiftRepository.GetByIdAsync(request.ShiftId, tenantId, cancellationToken);
+
         if (shift is null)
         {
             return new CancelShiftResult
@@ -34,7 +34,7 @@ public sealed class CancelShiftCommandHandler
             };
         }
 
-        if (shift.StartTime <= DateTime.UtcNow)
+        if (shift.StartTime <= DateTimeOffset.UtcNow)
         {
             return new CancelShiftResult
             {
@@ -46,7 +46,7 @@ public sealed class CancelShiftCommandHandler
             };
         }
 
-        shift.Cancel(); 
+        shift.Cancel();
         await _shiftRepository.UpdateAsync(shift);
 
         return new CancelShiftResult

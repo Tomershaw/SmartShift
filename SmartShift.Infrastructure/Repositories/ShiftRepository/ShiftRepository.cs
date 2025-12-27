@@ -24,18 +24,18 @@ public class ShiftRepository : IShiftRepository
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    private static (DateTime start, DateTime endExclusive) GetSunThuWindow(DateTime t)
+    private static (DateTimeOffset start, DateTimeOffset endExclusive) GetSunThuWindow(DateTimeOffset t)
     {
         var day = t.Date; // Sunday=0..Saturday=6
         int fromSunday = (int)day.DayOfWeek;
-        var start = day.AddDays(-fromSunday); // יום ראשון של אותו שבוע
-        var end = start.AddDays(5);         // עד חמישי - בלעדי
+        var start = new DateTimeOffset(day.AddDays(-fromSunday), TimeSpan.Zero); // יום ראשון של אותו שבוע
+        var end = new DateTimeOffset(start.DateTime.AddDays(5), TimeSpan.Zero);  // עד חמישי - בלעדי
         return (start, end);
     }
 
     public async Task<WeekSnapshot> GetWeekAssignmentsSnapshotAsync(
         Guid tenantId,
-        DateTime pivot,
+        DateTimeOffset pivot,
         CancellationToken cancellationToken = default)
     {
         if (tenantId == Guid.Empty)
@@ -735,7 +735,7 @@ public class ShiftRepository : IShiftRepository
     }
 
     // הוסף את המתודה החסרה שזוהתה קודם
-    public async Task<IEnumerable<Shift>> GetShiftsInDateRangeAsync(DateTime startDate, DateTime endDate, Guid tenantId, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Shift>> GetShiftsInDateRangeAsync(DateTimeOffset startDate, DateTimeOffset endDate, Guid tenantId, CancellationToken cancellationToken = default)
     {
         // Input validation
         if (tenantId == Guid.Empty)
@@ -767,10 +767,11 @@ public class ShiftRepository : IShiftRepository
             _logger.LogInformation("Getting shifts from {StartDate} to {EndDate} for tenant {TenantId}", startDate, endDate, tenantId);
 
             var shifts = await _context.Shifts
+
      .Where(s =>
          s.TenantId == tenantId &&
-         s.StartTime >= startDate &&
-         s.StartTime < endDate &&
+         s.StartTime >= startDate.ToUniversalTime() &&
+         s.StartTime < endDate.ToUniversalTime() &&
          s.Status != ShiftStatus.Cancelled) 
      .Include(s => s.ShiftRegistrations)
          .ThenInclude(sr => sr.Employee)
@@ -939,34 +940,25 @@ public class ShiftRepository : IShiftRepository
     }
 
     public async Task<bool> ExistsShiftOnDateAsync(
-        Guid tenantId,
-        DateTime startTimeUtc,
-        CancellationToken cancellationToken = default)
+     Guid tenantId,
+     DateTimeOffset startTimeUtc,
+     CancellationToken cancellationToken = default)
     {
         if (tenantId == Guid.Empty)
             throw new ArgumentException("Tenant ID cannot be empty", nameof(tenantId));
         if (startTimeUtc == default)
             throw new ArgumentException("Start time cannot be default", nameof(startTimeUtc));
 
-        // נורמליזציה - דואגים שבתוך הפונקציה זה באמת UTC
-        if (startTimeUtc.Kind == DateTimeKind.Unspecified)
-        {
-            // אם אתה יודע שכל מה שמגיע מהפרונט הוא UTC:
-            startTimeUtc = DateTime.SpecifyKind(startTimeUtc, DateTimeKind.Utc);
-        }
-        else
-        {
-            startTimeUtc = startTimeUtc.ToUniversalTime();
-        }
-
-        var dayStart = startTimeUtc.Date;
+        // המרה ל-UTC (אם עדיין לא)
+        var utcTime = startTimeUtc.UtcDateTime;
+        var dayStart = utcTime.Date;
         var dayEnd = dayStart.AddDays(1);
 
         return await _context.Shifts.AnyAsync(
             s => s.TenantId == tenantId
               && s.Status != ShiftStatus.Cancelled
-              && s.StartTime >= dayStart
-              && s.StartTime < dayEnd,
+              && s.StartTime >= new DateTimeOffset(dayStart, TimeSpan.Zero)
+              && s.StartTime < new DateTimeOffset(dayEnd, TimeSpan.Zero),
             cancellationToken);
     }
 

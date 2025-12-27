@@ -27,8 +27,7 @@ public interface IShiftRepository
     Task<Shift> AddAsync(Shift shift, CancellationToken cancellationToken = default);
     Task UpdateAsync(Shift shift);
     Task<bool> RegisterEmployeeForShiftAsync(Guid shiftId, string userId,Guid tenantId, EmployeeShiftAvailability shiftArrivalType, CancellationToken cancellationToken = default);
-    Task<IEnumerable<Shift>> GetShiftsInDateRangeAsync(DateTime startDate, DateTime endDate, Guid tenantId, CancellationToken cancellationToken = default);
-
+    Task<IEnumerable<Shift>> GetShiftsInDateRangeAsync(DateTimeOffset startDate, DateTimeOffset endDate, Guid tenantId, CancellationToken cancellationToken = default);
     Task<IEnumerable<ShiftRegistration>> GetPendingRegistrationsAsync(Guid tenantId, Guid shiftId, CancellationToken cancellationToken = default);
 
 
@@ -39,11 +38,10 @@ public interface IShiftRepository
     Task<IEnumerable<Employee>> GetApprovedEmployeesForShiftAsync(Guid shiftId, Guid tenantId, CancellationToken cancellationToken = default);
     Task<int> GetApprovedEmployeesCountAsync(Guid shiftId, Guid tenantId, CancellationToken cancellationToken = default);
 
-    Task<WeekSnapshot> GetWeekAssignmentsSnapshotAsync(Guid tenantId, DateTime pivot, CancellationToken cancellationToken = default);
-
+    Task<WeekSnapshot> GetWeekAssignmentsSnapshotAsync(Guid tenantId, DateTimeOffset pivot, CancellationToken cancellationToken = default);
     Task<bool> CancelRegistrationAsync(Guid shiftId,string userId,Guid tenantId,CancellationToken cancellationToken = default);
 
     Task<IEnumerable<Shift>> GetShiftsByEmployeeAsync(Guid employeeId, Guid tenantId, CancellationToken cancellationToken = default);
-    Task<bool> ExistsShiftOnDateAsync(Guid tenantId, DateTime date, CancellationToken cancellationToken = default);
+    Task<bool> ExistsShiftOnDateAsync(Guid tenantId, DateTimeOffset date, CancellationToken cancellationToken = default);
     Task SoftDeleteAsync(Guid id, Guid tenantId, CancellationToken cancellationToken);
 }

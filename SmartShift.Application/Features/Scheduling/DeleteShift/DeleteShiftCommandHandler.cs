@@ -30,7 +30,7 @@ public sealed class DeleteShiftCommandHandler
                 return new DeleteShiftResult { Success = false, Message = "משמרת לא נמצאה" };
 
             // Business Rule: לא ניתן למחוק משמרת שכבר התחילה
-            if (shift.StartTime <= DateTime.UtcNow)
+            if (shift.StartTime <= DateTimeOffset.UtcNow)
             {
                 return new DeleteShiftResult
                 {

@@ -1,7 +1,20 @@
 // src/features/scheduling/admin/pages/AdminRegisterEmployeePage.tsx
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom"; // מחקתי את useNavigate
 import api from "../../../../services/api";
+import { 
+  UserPlus, 
+  ArrowRight, 
+  Mail, 
+  Phone, 
+  Lock, 
+  User, 
+  Shield,
+  Briefcase, 
+  Users,
+  CheckCircle,
+  AlertCircle
+} from "lucide-react";
 
 /* ---- Types + helpers ---- */
 type ApiError = { errors?: string[] | string; message?: string };
@@ -23,7 +36,8 @@ function friendlyError(data?: ApiError): string {
 }
 
 export default function AdminRegisterEmployeePage() {
-  const navigate = useNavigate();
+  // נמחק: const navigate = useNavigate(); - לא בשימוש
+  
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -34,7 +48,6 @@ export default function AdminRegisterEmployeePage() {
   });
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [rawError, setRawError] = useState<string | null>(null);
 
   const onChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -46,7 +59,6 @@ export default function AdminRegisterEmployeePage() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMsg(null);
-    setRawError(null);
     setLoading(true);
 
     try {
@@ -79,264 +91,228 @@ export default function AdminRegisterEmployeePage() {
     } catch (err: unknown) {
       const resp = (
         err as {
-          config?: { url?: string };
           response?: { status?: number; data?: unknown };
         }
       ).response;
 
       const data = resp?.data as ApiError | undefined;
       const text = friendlyError(data);
-
-      console.error("Create user failed:", {
-        status: resp?.status,
-        data: resp?.data,
-      });
-
       setMsg({ ok: false, text });
-      setRawError(
-        JSON.stringify({ status: resp?.status, data: resp?.data }, null, 2)
-      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div dir="rtl" className="min-h-screen p-6 flex flex-col items-center">
-      {/* עוטף את כל התוכן ברוחב נוח ובמרכז */}
-      <div className="w-full max-w-2xl">
+    <div dir="rtl" className="min-h-screen bg-slate-50/50 pb-20 font-sans text-slate-900">
+      <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+        
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
+        <header className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <nav className="text-xs text-slate-500">
-              <Link to="/admin" className="hover:text-slate-700">
-                מרכז ניהול
-              </Link>
-              <span className="mx-1">/</span>
-              <span className="text-slate-700">רישום עובד חדש</span>
-            </nav>
-            <h1 className="mt-2 text-2xl font-extrabold text-slate-900">
+            <div className="flex items-center gap-2 text-slate-500 text-sm mb-1">
+               <Link to="/admin" className="hover:text-slate-800 transition">ניהול</Link>
+               <span>/</span>
+               <Link to="/admin/employees" className="hover:text-slate-800 transition">עובדים</Link>
+            </div>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+              <div className="p-2 bg-emerald-100 rounded-xl text-emerald-600">
+                <UserPlus size={24} />
+              </div>
               רישום עובד חדש
             </h1>
-            <p className="text-slate-600 text-sm mt-1">
-              מלא את הפרטים. המערכת תקשר את העובד ל-tenant של המנהל אוטומטית.
+            <p className="text-slate-500 mt-2">
+              הוספת עובד למערכת, הגדרת הרשאות ופרטי התחברות.
             </p>
           </div>
-
-          <button
-            onClick={() => navigate(-1)}
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:shadow"
+          
+          <Link
+            to="/admin"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 hover:text-slate-900 transition-all sm:w-auto w-full"
           >
-            ← חזרה
-          </button>
-        </div>
+            <ArrowRight size={16} />
+            חזרה לניהול
+          </Link>
+        </header>
 
-        {/* כרטיס תוכן ממורכז */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          {/* Alert */}
-          {msg && (
-            <div
-              className={`mb-4 rounded-lg border p-3 text-sm ${
-                msg.ok
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                  : "border-red-200 bg-red-50 text-red-800"
-              }`}
-            >
-              {msg.text}
+        {/* Alert Messages */}
+        {msg && (
+          <div className={`mb-6 p-4 rounded-xl flex items-start gap-3 border shadow-sm animate-in slide-in-from-top-2 ${
+            msg.ok ? "bg-emerald-50 border-emerald-100 text-emerald-800" : "bg-red-50 border-red-100 text-red-800"
+          }`}>
+            <div className={`p-1 rounded-full ${msg.ok ? "bg-emerald-100 text-emerald-600" : "bg-red-100 text-red-600"}`}>
+              {msg.ok ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
             </div>
-          )}
+            <div>
+              <h3 className="font-bold text-sm">{msg.ok ? "הפעולה הושלמה בהצלחה" : "שגיאה ברישום"}</h3>
+              <p className="text-sm mt-0.5 opacity-90">{msg.text}</p>
+            </div>
+          </div>
+        )}
 
-          {/* Raw error details */}
-          {rawError && !msg?.ok && (
-            <details className="mb-5 rounded-lg border border-slate-300 bg-slate-50 p-3">
-              <summary className="cursor-pointer text-sm text-slate-700">
-                פרטי שגיאה מהשרת
-              </summary>
-              <pre className="mt-2 overflow-auto text-xs text-slate-800">
-                {rawError}
-              </pre>
-            </details>
-          )}
-
-          <form onSubmit={onSubmit} className="space-y-5">
-            {/* Full name */}
-            <Field label="שם מלא" htmlFor="fullName" required>
-              <div className="relative">
-                <input
-                  id="fullName"
-                  name="fullName"
-                  type="text"
-                  value={form.fullName}
-                  onChange={onChange}
-                  required
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 pe-10 text-sm outline-none ring-0 transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                  placeholder="לדוגמה: תומר מלך"
-                />
-                <InputIcon />
-              </div>
-            </Field>
-
-            {/* Email and Phone */}
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <Field label="אימייל" htmlFor="email" required>
+        <form onSubmit={onSubmit} className="space-y-6">
+          
+          {/* Card 1: פרטים אישיים */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-100 pb-2">
+              <User size={18} className="text-blue-500" />
+              פרטים אישיים
+            </h2>
+            
+            <div className="space-y-4">
+              {/* שם מלא */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">שם מלא <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={form.email}
-                    onChange={onChange}
+                    name="fullName"
+                    type="text"
                     required
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 pe-10 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                    placeholder="name@example.com"
+                    value={form.fullName}
+                    onChange={onChange}
+                    className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 pl-10 text-sm outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
+                    placeholder="לדוגמה: ישראל ישראלי"
                   />
-                  <InputIcon />
+                  <User className="absolute left-3 top-2.5 text-slate-400" size={18} />
                 </div>
-              </Field>
+              </div>
 
-              <Field label="טלפון" htmlFor="phoneNumber">
+              {/* טלפון */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">מספר טלפון</label>
                 <div className="relative">
                   <input
-                    id="phoneNumber"
                     name="phoneNumber"
                     type="tel"
                     value={form.phoneNumber}
                     onChange={onChange}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 pe-10 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                    placeholder="0541234567"
+                    className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 pl-10 text-sm outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
+                    placeholder="050-0000000"
                   />
-                  <InputIcon />
+                  <Phone className="absolute left-3 top-2.5 text-slate-400" size={18} />
                 </div>
-              </Field>
+              </div>
             </div>
+          </div>
 
-            {/* Password / Role / Gender */}
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-              <Field
-                label="סיסמה זמנית"
-                htmlFor="password"
-                required
-                hint="העובד יוכל להחליף מאוחר יותר"
-              >
+          {/* Card 2: פרטי התחברות */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-100 pb-2">
+              <Shield size={18} className="text-purple-500" />
+              פרטי גישה למערכת
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* אימייל */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">כתובת אימייל <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <input
-                    id="password"
+                    name="email"
+                    type="email"
+                    required
+                    value={form.email}
+                    onChange={onChange}
+                    className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 pl-10 text-sm outline-none focus:bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all"
+                    placeholder="name@company.com"
+                  />
+                  <Mail className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                </div>
+              </div>
+
+              {/* סיסמה */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">סיסמה ראשונית <span className="text-red-500">*</span></label>
+                <div className="relative">
+                  <input
                     name="password"
                     type="password"
+                    required
                     value={form.password}
                     onChange={onChange}
-                    required
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 pe-10 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                    placeholder="מינימום לפי מדיניות השרת"
+                    className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 pl-10 text-sm outline-none focus:bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all"
+                    placeholder="••••••••"
                   />
-                  <InputIcon />
+                  <Lock className="absolute left-3 top-2.5 text-slate-400" size={18} />
                 </div>
-              </Field>
-
-              <Field label="תפקיד" htmlFor="role">
-                <select
-                  id="role"
-                  name="role"
-                  value={form.role}
-                  onChange={onChange}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                >
-                  <option value="Employee">Employee</option>
-                  <option value="Manager">Manager</option>
-                  <option value="Admin">Admin</option>
-                </select>
-              </Field>
-
-              <Field label="מגדר" htmlFor="gender">
-                <select
-                  id="gender"
-                  name="gender"
-                  value={form.gender}
-                  onChange={onChange}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-                >
-                  <option value="Unknown">לא מצוין</option>
-                  <option value="Male">זכר</option>
-                  <option value="Female">נקבה</option>
-                  <option value="Other">אחר</option>
-                </select>
-              </Field>
+                <p className="text-xs text-slate-500 mt-1">העובד יוכל לשנות את הסיסמה בכניסה הראשונה.</p>
+              </div>
             </div>
+          </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="submit"
-                disabled={loading}
-                className={`rounded-xl px-4 py-2 text-sm font-semibold text-white transition ${
-                  loading
-                    ? "bg-slate-400 cursor-not-allowed"
-                    : "bg-emerald-600 hover:bg-emerald-500"
-                }`}
-              >
-                {loading ? "שומר..." : "צור עובד חדש"}
-              </button>
+          {/* Card 3: הגדרות נוספות */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 border-b border-slate-100 pb-2">
+              <Briefcase size={18} className="text-emerald-500" />
+              הגדרות תפקיד
+            </h2>
 
-              <Link
-                to="/admin"
-                className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium
-                           text-sky-800 hover:bg-sky-100 hover:border-sky-300 shadow-sm transition
-                           focus:outline-none focus:ring-2 focus:ring-sky-300"
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  className="opacity-80"
-                >
-                  <path fill="currentColor" d="M10 19l-7-7l7-7v4h8v6h-8v4z" />
-                </svg>
-                חזרה למרכז ניהול
-              </Link>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* תפקיד */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">תפקיד במערכת</label>
+                <div className="relative">
+                  <select
+                    name="role"
+                    value={form.role}
+                    onChange={onChange}
+                    className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 pl-10 text-sm outline-none focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all appearance-none"
+                  >
+                    <option value="Employee">עובד (Employee)</option>
+                    <option value="Manager">מנהל (Manager)</option>
+                    <option value="Admin">אדמין (Admin)</option>
+                  </select>
+                  <Briefcase className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                </div>
+              </div>
+
+              {/* מגדר */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">מגדר</label>
+                <div className="relative">
+                  <select
+                    name="gender"
+                    value={form.gender}
+                    onChange={onChange}
+                    className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 pl-10 text-sm outline-none focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all appearance-none"
+                  >
+                    <option value="Unknown">לא מצוין</option>
+                    <option value="Male">זכר</option>
+                    <option value="Female">נקבה</option>
+                    <option value="Other">אחר</option>
+                  </select>
+                  <Users className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                </div>
+              </div>
             </div>
-          </form>
-        </section>
+          </div>
+
+          {/* Actions Footer */}
+          <div className="flex items-center justify-end pt-4">
+            <button
+              type="submit"
+              disabled={loading}
+              className={`
+                inline-flex items-center justify-center gap-2 rounded-xl px-8 py-3 text-sm font-bold text-white shadow-lg transition-all active:scale-95 w-full sm:w-auto
+                ${loading 
+                  ? "bg-slate-400 cursor-not-allowed shadow-none" 
+                  : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/30"
+                }
+              `}
+            >
+              {loading ? (
+                "יוצר משתמש..."
+              ) : (
+                <>
+                  <UserPlus size={18} />
+                  צור עובד חדש
+                </>
+              )}
+            </button>
+          </div>
+
+        </form>
       </div>
     </div>
-  );
-}
-
-/* ---------- Small UI helpers ---------- */
-function Field(props: {
-  label: string;
-  htmlFor: string;
-  children: React.ReactNode;
-  required?: boolean;
-  hint?: string;
-}) {
-  return (
-    <div>
-      <label
-        htmlFor={props.htmlFor}
-        className="mb-1 block text-sm font-medium text-slate-700"
-      >
-        {props.label}{" "}
-        {props.required && <span className="text-red-600">*</span>}
-      </label>
-      {props.children}
-      {props.hint && (
-        <p className="mt-1 text-xs text-slate-500">{props.hint}</p>
-      )}
-    </div>
-  );
-}
-
-function InputIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="pointer-events-none absolute inset-y-0 left-3 my-auto h-4 w-4 text-slate-400"
-      aria-hidden
-    >
-      <path
-        fill="currentColor"
-        d="M12 12c2.21 0 4-1.79 4-4S14.21 4 12 4S8 5.79 8 8s1.79 4 4 4m0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4"
-      />
-    </svg>
   );
 }

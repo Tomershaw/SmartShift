@@ -94,8 +94,6 @@ export function useRegistrations(pivotDate: Date = new Date()) {
         });
         console.log("DAY REGISTRANTS FROM API:", data);
         setNames(prev => (reset ? data : [...prev, ...data]));
-
-        setNames(prev => (reset ? data : [...prev, ...data]));
         if (reset) setSkip(take);
         else setSkip(s => s + take);
       } catch (e: unknown) {

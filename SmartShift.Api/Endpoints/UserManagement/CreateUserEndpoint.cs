@@ -57,6 +57,6 @@ public class CreateUserEndpoint : ICarterModule
         if (!result.Success)
             return Results.BadRequest(new { Errors = result.Errors, Message = result.Message });
 
-        return Results.Ok(new { Message = "המשתמש נוצר בהצלחה", UserId = result.UserId });
+        return Results.Ok(new { Success = true, Message = "המשתמש נוצר בהצלחה", UserId = result.UserId });
     }
 }

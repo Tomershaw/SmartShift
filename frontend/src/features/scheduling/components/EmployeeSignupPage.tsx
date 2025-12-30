@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check } from "lucide-react";
+import {
+  Check,
+  Clock,
+  AlertCircle,
+  LogOut,
+  RefreshCcw,
+  Send,
+  X,
+  CalendarDays, // וידאתי שזה בשימוש או נמחק אם לא
+} from "lucide-react";
 import { useAuth } from "../../auth/context/useAuth";
 import { schedulingApi } from "../api/schedulingApi";
 import type { RegisterForShiftRequest } from "../api/schedulingApi";
@@ -45,23 +54,18 @@ function ilLong(d: Date): string {
   return new Intl.DateTimeFormat("he-IL", {
     timeZone: "Asia/Jerusalem",
     weekday: "long",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
   }).format(d);
 }
-function ilShort(d: Date): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Jerusalem",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(d);
-}
-function ilWeekdayShort(d: Date): string {
+function ilMonthName(d: Date): string {
   return new Intl.DateTimeFormat("he-IL", {
     timeZone: "Asia/Jerusalem",
-    weekday: "short",
+    month: "long",
+  }).format(d);
+}
+function ilDayNumber(d: Date): string {
+  return new Intl.DateTimeFormat("he-IL", {
+    timeZone: "Asia/Jerusalem",
+    day: "numeric",
   }).format(d);
 }
 function ilDateTime(d: Date): string {
@@ -72,17 +76,17 @@ function ilDateTime(d: Date): string {
   }).format(d);
 }
 
-// חלון ייצור: פתיחה רביעי 00:00, סגירה שישי 12:00 לפי Asia/Jerusalem
+// חלון ייצור
 function getSubmissionWindow(now = new Date()) {
-  const sunday = ilStartOfSunday(now); // ראשון של השבוע הנוכחי
-  const wednesday = addUTCDays(sunday, 3); // רביעי 00:00
-  const friday = addUTCDays(sunday, 5); // שישי 00:00
+  const sunday = ilStartOfSunday(now);
+  const wednesday = addUTCDays(sunday, 3);
+  const friday = addUTCDays(sunday, 5);
 
   const start = new Date(wednesday);
   start.setUTCHours(0, 0, 0, 0);
 
   const end = new Date(friday);
-  end.setUTCHours(12, 0, 0, 0); // סגירה ב-12:00
+  end.setUTCHours(12, 0, 0, 0);
   return { start, end };
 }
 
@@ -103,7 +107,6 @@ function formatCountdown(ms: number) {
   return days > 0 ? `${days} ימים ${hh}:${mm}:${ss}` : `${hh}:${mm}:${ss}`;
 }
 
-/** offset שעות בפועל ל־Asia/Jerusalem עבור היום (2 או 3 בד"כ) */
 function ilOffsetHoursForDate(y: number, m: number, day: number): number {
   const utcMidnight = new Date(Date.UTC(y, m - 1, day, 0, 0, 0, 0));
   const hourStr = new Intl.DateTimeFormat("en-CA", {
@@ -114,11 +117,10 @@ function ilOffsetHoursForDate(y: number, m: number, day: number): number {
   return Number(hourStr);
 }
 
-/** "היום ב־X:00" לפי ישראל - כולל DST נכון */
 function ilTodayAtHourIL(hour: number, now = new Date()): Date {
-  const { y, m, day } = ilParts(now); // היום לפי IL
+  const { y, m, day } = ilParts(now);
   const offset = ilOffsetHoursForDate(y, m, day);
-  return new Date(Date.UTC(y, m - 1, day, hour - offset, 0, 0, 0)); // UTC = IL - offset
+  return new Date(Date.UTC(y, m - 1, day, hour - offset, 0, 0, 0));
 }
 
 /* ========= Types ========= */
@@ -126,11 +128,12 @@ type DayISO = string;
 type ShiftChoice = "early" | "regular";
 type DayStatus = "idle" | "pending" | "error" | "loading";
 
+/* ========= Main Component ========= */
 export default function EmployeeSignupPage() {
   const { user, logout } = useAuth();
   const { show, hide } = useLoading();
 
-  // שבוע הבא - ראשון עד חמישי
+  // State setup
   const [weekStart] = useState<Date>(ilNextSunday);
   const days = useMemo(
     () => Array.from({ length: 5 }, (_, i) => addUTCDays(weekStart, i)),
@@ -138,28 +141,17 @@ export default function EmployeeSignupPage() {
   );
   const isoDays = useMemo(() => days.map(d => ilISO(d)), [days]);
 
-  // בחירות ליום
   const [localState, setLocalState] = useState<
     Record<DayISO, ShiftChoice | null>
   >({});
-
-  // מיפוי iso -> shiftId
   const [shiftIdByIso, setShiftIdByIso] = useState<Record<string, string>>({});
-
-  // דגלי טעינה
   const [shiftsLoaded, setShiftsLoaded] = useState(false);
   const [registrationsLoaded, setRegistrationsLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-
-  // סטטוס פר יום
   const [dayStatus, setDayStatus] = useState<Record<DayISO, DayStatus>>({});
-
-  // סטטוס אישי שלי לכל יום: 0 Pending, 1 Approved, 2 Rejected, 3 Cancelled
   const [myStatusByIso, setMyStatusByIso] = useState<
     Record<string, 0 | 1 | 2 | 3>
   >({});
-
-  // שליחה
   const [submitting, setSubmitting] = useState(false);
   const [submitMsg, setSubmitMsg] = useState<string | null>(null);
 
@@ -190,14 +182,13 @@ export default function EmployeeSignupPage() {
     countdownTarget.getTime() - now.getTime()
   );
 
-  /* ===== Loader control ===== */
+  /* ===== Effects ===== */
   useEffect(() => {
     if (!dataReady) show("טוען משמרות והרשמות...");
     else hide();
     return () => hide();
   }, [dataReady, show, hide]);
 
-  /* ===== Reset when week changes ===== */
   useEffect(() => {
     setLocalState({});
     setDayStatus(
@@ -210,7 +201,7 @@ export default function EmployeeSignupPage() {
     setLoadError(null);
   }, [weekStart, isoDays]);
 
-  /* ===== Load shifts ===== */
+  // Load Shifts
   useEffect(() => {
     if (!user) return;
     let active = true;
@@ -242,16 +233,14 @@ export default function EmployeeSignupPage() {
     };
   }, [user, weekStart]);
 
-  /* ===== Load my registrations and set locks/status ===== */
+  // Load Registrations
   useEffect(() => {
     if (!user || !shiftsLoaded) return;
     let active = true;
-
     (async () => {
       try {
         const startIso = ilISO(weekStart);
         const endIso = ilISO(addUTCDays(weekStart, 5));
-
         const regs = await schedulingApi.getMyRegistrations(startIso, endIso);
         if (!active) return;
 
@@ -261,28 +250,25 @@ export default function EmployeeSignupPage() {
         for (const r of regs) {
           if (r.shiftDate) {
             statusMap[r.shiftDate] = r.status;
-            if (r.status === 0 || r.status === 1) locked.add(r.shiftDate); // Pending/Approved נועל
+            if (r.status === 0 || r.status === 1) locked.add(r.shiftDate);
           }
         }
 
         setMyStatusByIso(statusMap);
-
-        // עדכן כל יום ל-idle אלא אם נעול
         const next: Record<string, DayStatus> = {};
         for (const iso of isoDays)
           next[iso] = locked.has(iso) ? "pending" : "idle";
         setDayStatus(next);
 
-        // נקה בחירה מקומית לימים שננעלו
         setLocalState(prev => {
           const copy = { ...prev };
           for (const iso of locked) copy[iso] = null;
           return copy;
         });
       } catch (err) {
-        console.error("getMyRegistrations failed", err);
+        // תיקון שגיאת unused var
+        console.error("Error loading registrations:", err);
         if (active) {
-          // אל תחזיר ל-"loading" - זה נתקע. סמן "error" כדי לאפשר כפתורים.
           const errState = Object.fromEntries(
             isoDays.map(iso => [iso, "error"] as const)
           );
@@ -293,16 +279,14 @@ export default function EmployeeSignupPage() {
         if (active) setRegistrationsLoaded(true);
       }
     })();
-
     return () => {
       active = false;
     };
   }, [user, weekStart, shiftsLoaded, isoDays]);
 
-  /* ===== Draft requests ===== */
-  type DraftItem = { iso: string; payload: RegisterForShiftRequest };
-  const draftRequests = useMemo<DraftItem[]>(() => {
-    const drafts: DraftItem[] = [];
+  /* ===== Actions ===== */
+  const draftRequests = useMemo(() => {
+    const drafts: { iso: string; payload: RegisterForShiftRequest }[] = [];
     for (const [iso, choice] of Object.entries(localState)) {
       if (!choice) continue;
       const shiftId = shiftIdByIso[iso];
@@ -321,8 +305,10 @@ export default function EmployeeSignupPage() {
       [day]: prev[day] === type ? null : type,
     }));
   }
+
   function resetSelections() {
     setLocalState({});
+    setSubmitMsg(null);
   }
 
   async function handleRegister() {
@@ -343,7 +329,7 @@ export default function EmployeeSignupPage() {
           try {
             const res = await schedulingApi.registerForShift(payload);
             setDayStatus(p => ({ ...p, [iso]: "pending" }));
-            setMyStatusByIso(p => ({ ...p, [iso]: 0 })); // Pending
+            setMyStatusByIso(p => ({ ...p, [iso]: 0 }));
             setLocalState(p => ({ ...p, [iso]: null }));
             return { ok: true, msg: res.message };
           } catch {
@@ -353,14 +339,12 @@ export default function EmployeeSignupPage() {
         })
       );
       const ok = outcomes.filter(o => o.ok).length;
-      const fail = outcomes.length - ok;
-      setSubmitMsg(`נשלחו ${ok} בקשות בהצלחה, ${fail} נכשלו`);
+      setSubmitMsg(`נשלחו ${ok} בקשות בהצלחה`);
     } finally {
       setSubmitting(false);
     }
   }
 
-  /* ===== Cancel my registration for a day ===== */
   async function handleCancel(iso: string) {
     const shiftId = shiftIdByIso[iso];
     if (!shiftId) return;
@@ -369,13 +353,18 @@ export default function EmployeeSignupPage() {
     try {
       const res = await schedulingApi.cancelMyRegistration(shiftId);
       if (res?.success) {
-        // שחרר לבחירה מחדש
+        // כאן הקסם: החזרתי את הסטטוס ל-idle (פנוי) במקום להשאיר Cancelled
+        // זה גורם לכרטיס להיראות נקי ומוכן לבחירה מחדש
         setDayStatus(p => ({ ...p, [iso]: "idle" }));
-        setMyStatusByIso(p => ({ ...p, [iso]: 3 })); // Cancelled
-        setSubmitMsg("ההרשמה בוטלה");
+        setMyStatusByIso(p => {
+          const next = { ...p };
+          delete next[iso]; // מסיר את הסטטוס לגמרי
+          return next;
+        });
+        setSubmitMsg("ההרשמה בוטלה - ניתן לבחור מחדש");
       } else {
         setDayStatus(p => ({ ...p, [iso]: "error" }));
-        setSubmitMsg("לא ניתן לבטל (לא נמצא או לא Pending)");
+        setSubmitMsg("לא ניתן לבטל");
       }
     } catch {
       setDayStatus(p => ({ ...p, [iso]: "error" }));
@@ -383,262 +372,375 @@ export default function EmployeeSignupPage() {
     }
   }
 
-  
-  console.log('Full user:', user);
-  console.log('Gender:', user?.gender);
+  // שם משתמש לתצוגה - תיקון שגיאת ה-firstName
+  // אנחנו לוקחים את החלק שלפני ה-@ באימייל אם אין שם
+  const displayName = user?.email?.split("@")[0] || "אורח";
 
-  /* ========= UI ========= */
+  /* ========= UI Render ========= */
   return (
-    <div
-      className="mx-auto max-w-7xl p-6 transition-opacity duration-200"
-      dir="rtl"
-    >
-      {/* Header */}
-      <header className="mb-6">
-        <div className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-sky-500/10 via-teal-500/10 to-emerald-500/10 border border-slate-200 p-6">
-          {/* כותרת + פרטים במרכז */}
-          <div className="flex flex-col items-center text-center gap-2 mx-auto">
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-800">
-              הרשמה למשמרות - עובדים
-            </h1>
-            <p className="text-slate-600">
-              שלום <span className="font-semibold">{user?.email}</span>, ההרשמה
-              מוצגת לשבוע הבא בלבד
-            </p>
-            <div className="mt-2 rounded-xl border border-slate-200 bg-white px-4 py-1.5 text-sm text-slate-700">
-              {ilLong(days[0])} - {ilLong(days[4])}
-            </div>
+    <div className="min-h-screen bg-slate-50/50 pb-28" dir="rtl">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        {/* Header Hero */}
+        <header className="mb-8">
+          <div className="relative overflow-hidden rounded-3xl bg-slate-900 px-6 py-8 shadow-2xl sm:px-10 sm:py-10">
+            {/* Background Pattern */}
+            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+            <div className="absolute top-0 right-0 h-[300px] w-[300px] bg-gradient-to-br from-blue-500/30 to-purple-500/30 blur-[100px] rounded-full pointer-events-none" />
 
-            {/* טיימר חלון הגשה */}
-            <div
-              className={`mt-2 px-3 py-1.5 rounded-full text-xs sm:text-sm border
+            <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 text-slate-400 mb-2 text-sm font-medium">
+                  <CalendarDays className="w-4 h-4" />
+                  <span>שבוע הבא</span>
+                </div>
+                <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white mb-2">
+                  {ilLong(days[0])} - {ilLong(days[4])}
+                </h1>
+                <p className="text-slate-300">
+                  שלום{" "}
+                  <span className="text-white font-bold">{displayName}</span>,
+                  אנא בחר את המשמרות שלך.
+                </p>
+              </div>
+
+              {/* Timer Card */}
+              <div
+                className={`
+                w-full md:w-auto flex flex-col items-center justify-center rounded-2xl border px-6 py-3 backdrop-blur-md transition-all
                 ${
                   withinWindow
-                    ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-50 shadow-[0_0_20px_rgba(16,185,129,0.1)]"
                     : beforeWindow
-                    ? "border-sky-300 bg-sky-50 text-sky-800"
-                    : "border-rose-300 bg-rose-50 text-rose-800"
-                }`}
-              title={`סגירה: ${ilDateTime(submitEnd)}`}
-            >
-              {beforeWindow && (
-                <>
-                  ההרשמה תיפתח בעוד:{" "}
-                  <span className="font-semibold">{countdownText}</span> •
-                  פתיחה: {ilDateTime(submitStart)}
-                </>
-              )}
-              {withinWindow && (
-                <>
-                  נשאר זמן להגשה:{" "}
-                  <span className="font-semibold">{countdownText}</span> •
-                  סגירה: {ilDateTime(submitEnd)}
-                </>
-              )}
-              {afterWindow && (
-                <>ההרשמה נסגרה • סגירה: {ilDateTime(submitEnd)}</>
+                    ? "bg-blue-500/10 border-blue-500/30 text-blue-50"
+                    : "bg-rose-500/10 border-rose-500/30 text-rose-50"
+                }
+              `}
+              >
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-80 mb-1">
+                  <Clock size={14} />
+                  {beforeWindow
+                    ? "ההרשמה נפתחת בעוד"
+                    : withinWindow
+                    ? "זמן שנותר להרשמה"
+                    : "סטטוס הרשמה"}
+                </div>
+                <div className="text-2xl font-mono font-bold tracking-wider tabular-nums">
+                  {afterWindow ? "סגור" : countdownText}
+                </div>
+                <div className="text-[10px] mt-1 opacity-60">
+                  {beforeWindow
+                    ? `פתיחה ב: ${ilDateTime(submitStart)}`
+                    : `סגירה ב: ${ilDateTime(submitEnd)}`}
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Error Message */}
+        {loadError && (
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800 flex items-center gap-3 animate-in slide-in-from-top-2">
+            <AlertCircle className="h-5 w-5" />
+            {loadError}
+          </div>
+        )}
+
+        {/* Days Grid */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {days.map(d => {
+            const iso = ilISO(d);
+            return (
+              <DayCard
+                key={iso}
+                date={d}
+                iso={iso}
+                selection={localState[iso]}
+                hasShift={!!shiftIdByIso[iso]}
+                status={dayStatus[iso] ?? "loading"}
+                myStatus={myStatusByIso[iso]}
+                withinWindow={withinWindow}
+                gender={user?.gender}
+                onSelect={select}
+                onCancel={handleCancel}
+              />
+            );
+          })}
+        </div>
+
+        {/* Floating Action Bar - הלבן והעדין */}
+        <div className="fixed bottom-6 left-4 right-4 z-50 mx-auto max-w-4xl">
+          <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200/50 bg-white/90 p-3 pl-4 text-slate-800 shadow-lg backdrop-blur-xl transition-all">
+            {/* Status / Message */}
+            <div className="flex-1 flex items-center gap-3 min-w-0">
+              {submitMsg ? (
+                <span
+                  className={`flex items-center gap-2 text-sm font-medium animate-in slide-in-from-bottom-2 ${
+                    submitMsg.includes("הצלחה")
+                      ? "text-emerald-600"
+                      : "text-slate-600"
+                  }`}
+                >
+                  {submitMsg.includes("הצלחה") ? (
+                    <Check size={16} />
+                  ) : (
+                    <AlertCircle size={16} />
+                  )}
+                  <span className="truncate">{submitMsg}</span>
+                </span>
+              ) : (
+                <span className="text-sm text-slate-500 truncate">
+                  {draftRequests.length > 0
+                    ? `נבחרו ${draftRequests.length} משמרות לשליחה`
+                    : "בחר משמרות כדי להירשם"}
+                </span>
               )}
             </div>
 
-            {!!loadError && (
-              <div className="mt-3 rounded-lg bg-red-50 border border-red-200 text-red-700 px-3 py-2 text-sm">
-                {loadError}
-              </div>
-            )}
+            {/* Actions */}
+            <div className="flex items-center gap-2">
+              {draftRequests.length > 0 && (
+                <button
+                  onClick={resetSelections}
+                  className="p-2.5 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition"
+                  title="נקה בחירה"
+                >
+                  <RefreshCcw size={18} />
+                </button>
+              )}
+
+              <button
+                onClick={handleRegister}
+                disabled={
+                  submitting || draftRequests.length === 0 || !withinWindow
+                }
+                className={`
+                    flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold shadow-md transition-all active:scale-95 text-white
+                    ${
+                      submitting || draftRequests.length === 0 || !withinWindow
+                        ? "bg-slate-300 cursor-not-allowed shadow-none"
+                        : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/20"
+                    }
+                  `}
+              >
+                {submitting ? "שולח..." : "שלח הרשמה"}
+                {!submitting && <Send size={16} />}
+              </button>
+
+              <div className="h-6 w-px bg-slate-200 mx-1"></div>
+
+              <button
+                onClick={logout}
+                className="p-2.5 rounded-xl text-rose-500 hover:bg-rose-50 transition"
+                title="התנתק"
+              >
+                <LogOut size={18} />
+              </button>
+            </div>
           </div>
         </div>
-      </header>
+      </div>
+    </div>
+  );
+}
 
-      {/* Grid of days */}
-      <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
-        {days.map(d => {
-          const iso = ilISO(d);
-          const display = ilShort(d);
-          const sel = localState[iso];
-          const hasShiftId = Boolean(shiftIdByIso[iso]);
+/* ========= Sub-Component: Day Card ========= */
+function DayCard({
+  date,
+  iso,
+  selection,
+  hasShift,
+  status,
+  myStatus,
+  withinWindow,
+  gender,
+  onSelect,
+  onCancel,
+}: {
+  date: Date;
+  iso: string;
+  selection: ShiftChoice | null | undefined;
+  hasShift: boolean;
+  status: DayStatus;
+  myStatus: 0 | 1 | 2 | 3 | undefined;
+  withinWindow: boolean;
+  gender: string | undefined;
+  onSelect: (iso: string, type: ShiftChoice) => void;
+  onCancel: (iso: string) => void;
+}) {
+  const isPending = status === "pending";
+  const isLoading = status === "loading";
+  const isIdleOrError = status === "idle" || status === "error";
 
-          const status = dayStatus[iso] ?? "loading"; // "idle" | "pending" | "error" | "loading"
-          const myStatus = myStatusByIso[iso]; // 0..3
+  const canCancel = isPending && myStatus === 0;
+  const isApproved = isPending && myStatus === 1;
+  const isRejected = isPending && myStatus === 2;
+  // const isCancelled = myStatus === 3; // הוסר כי אנחנו מאפסים את המצב בביטול
 
-          // בוליאנים ברורים - פותרים TS2367
-          const isPending = status === "pending";
-          const isLoading = status === "loading";
-          const isIdleOrError = status === "idle" || status === "error";
-          const canCancel = isPending && myStatus === 0;
+  const buttonsEnabled = hasShift && isIdleOrError && withinWindow;
+  const isActiveSelection = !!selection;
 
-          // כפתורי בחירה פעילים רק כשיש משמרת, היום פנוי להצגה, ואנחנו בחלון
-          const buttonsEnabled = hasShiftId && isIdleOrError && withinWindow;
-          console.log({
-            iso,
-            dayStatus: dayStatus[iso],
-            myStatus: myStatusByIso[iso],
-            withinWindow,
-            hasShiftId: !!shiftIdByIso[iso],
-          });
+  return (
+    <div
+      className={`
+      relative flex flex-col h-full rounded-2xl bg-white transition-all duration-300 overflow-hidden
+      ${
+        isActiveSelection
+          ? "ring-2 ring-blue-500 shadow-xl scale-[1.02] z-10"
+          : "border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300"
+      }
+      ${!hasShift ? "opacity-60 bg-slate-50 grayscale" : ""}
+    `}
+    >
+      {/* Top Banner Status */}
+      <div className="flex items-center justify-between px-4 pt-4">
+        <span className="text-xs font-semibold text-slate-400 tracking-wide">
+          {ilLong(date)}
+        </span>
 
-          return (
-            <article
-              key={iso}
-              className={`rounded-2xl border p-5 shadow-sm transition ${
-                sel
-                  ? "border-emerald-300 ring-2 ring-emerald-200 bg-emerald-50/40"
-                  : "border-slate-200 bg-white hover:shadow-md"
-              }`}
-            >
-              <header className="mb-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500">
-                    {ilWeekdayShort(d)}
-                  </span>
-                  {!hasShiftId && (
-                    <span className="text-[10px] text-red-500">
-                      אין משמרת ליום זה
-                    </span>
-                  )}
-                </div>
-                <div className="mt-1 text-lg font-semibold text-slate-800">
-                  {display}
-                </div>
-
-                {canCancel && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs text-amber-700">
-                      כבר נרשמת - ממתין לאישור
-                    </div>
-                    <button
-                      onClick={() => handleCancel(iso)}
-                      className="px-2.5 py-1 rounded-lg bg-red-600 text-white text-xs hover:opacity-90 disabled:opacity-50"
-                      aria-label="בטל הרשמה"
-                      title="בטל הרשמה"
-                      disabled={isLoading}
-                    >
-                      בטל הרשמה
-                    </button>
-                  </div>
-                )}
-
-                {isPending && myStatus === 1 && (
-                  <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs text-emerald-700">
-                    נרשמת - אושר
-                  </div>
-                )}
-
-                {status === "error" && (
-                  <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-red-300 bg-red-50 px-2.5 py-1 text-xs text-red-700">
-                    שגיאה בשליחה - נסה שוב
-                  </div>
-                )}
-                {!withinWindow && !afterWindow && (
-                  <div className="mt-2 text-[11px] text-slate-500">
-                    ההרשמה תיפתח בקרוב
-                  </div>
-                )}
-                {afterWindow && (
-                  <div className="mt-2 text-[11px] text-slate-500">
-                    ההרשמה נסגרה לשבוע זה
-                  </div>
-                )}
-
-                {isLoading && (
-                  <div className="mt-2 text-[11px] text-slate-500">טוען...</div>
-                )}
-              </header>
-                
-              <div className="flex flex-col gap-3">
-                {user?.gender !== "Female" && (
-                  <button
-                    onClick={() => select(iso, "early")}
-                    disabled={!buttonsEnabled}
-                    className={`group rounded-xl border px-4 py-3 text-sm font-medium transition flex items-center justify-between
-                  ${
-                    sel === "early"
-                      ? "border-emerald-400 bg-white ring-2 ring-emerald-300"
-                      : "border-slate-300 bg-slate-50 hover:bg-white"
-                  }
-                  ${!buttonsEnabled ? "opacity-50 cursor-not-allowed" : ""}`}
-                  >
-                    <span>Early</span>
-                    {sel === "early" ? (
-                      <Check className="h-4 w-4" aria-hidden />
-                    ) : (
-                      <span className="text-[10px] text-slate-400">בחר</span>
-                    )}
-                  </button>
-                )}
-
-                {/* כפתור Regular תמיד מוצג */}
-                <button
-                  onClick={() => select(iso, "regular")}
-                  disabled={!buttonsEnabled}
-                  className={`group rounded-xl border px-4 py-3 text-sm font-medium transition flex items-center justify-between
-                ${
-                  sel === "regular"
-                    ? "border-sky-400 bg-white ring-2 ring-sky-300"
-                    : "border-slate-300 bg-slate-50 hover:bg-white"
-                }
-                ${!buttonsEnabled ? "opacity-50 cursor-not-allowed" : ""}`}
-                >
-                  <span>Regular</span>
-                  {sel === "regular" ? (
-                    <Check className="h-4 w-4" aria-hidden />
-                  ) : (
-                    <span className="text-[10px] text-slate-400">בחר</span>
-                  )}
-                </button>
-              </div>
-            </article>
-          );
-        })}
-      </section>
-
-      {/* פעולה בתחתית - הרשמה, איפוס, התנתק יחד */}
-      <div className="mt-8 flex itemsקרים justify-end gap-2">
-        <button
-          className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-50"
-          onClick={resetSelections}
-        >
-          איפוס
-        </button>
-        <button
-          onClick={handleRegister}
-          disabled={submitting || draftRequests.length === 0 || !withinWindow}
-          className={`rounded-xl px-5 py-2 text-sm text-white ${
-            submitting || draftRequests.length === 0 || !withinWindow
-              ? "bg-slate-400 cursor-not-allowed"
-              : "bg-slate-900 hover:bg-slate-800"
-          }`}
-          aria-label="שליחת הרשמות לשבוע הנבחר"
-        >
-          {submitting ? "שולח..." : "הרשמה"}
-        </button>
-        <button
-          onClick={logout}
-          className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium
-               text-red-800 hover:bg-red-100 hover:border-red-300 shadow-sm transition
-               focus:outline-none focus:ring-2 focus:ring-red-300"
-          aria-label="התנתק"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            className="opacity-80"
-          >
-            <path
-              fill="currentColor"
-              d="M16 17v-2H8V9h8V7l4 4l-4 4ZM4 5h8V3H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8v-2H4V5Z"
-            />
-          </svg>
-          התנתק
-        </button>
+        {/* Badges - הסרתי את ה"בוטל" מכאן בכוונה */}
+        {canCancel && (
+          <StatusBadge
+            color="bg-amber-100 text-amber-700"
+            icon={<Clock size={10} />}
+            text="ממתין"
+          />
+        )}
+        {isApproved && (
+          <StatusBadge
+            color="bg-emerald-100 text-emerald-700"
+            icon={<Check size={10} />}
+            text="אושר"
+          />
+        )}
+        {isRejected && (
+          <StatusBadge
+            color="bg-rose-100 text-rose-700"
+            icon={<X size={10} />}
+            text="נדחה"
+          />
+        )}
       </div>
 
-      {/* פידבק לשליחה */}
-      {submitMsg && (
-        <div className="mt-3 rounded-lg border px-3 py-2 text-sm border-slate-200 bg-slate-50 text-slate-700">
-          {submitMsg}
+      {/* Date Display - Hero Section */}
+      <div className="flex flex-col items-center justify-center py-6">
+        <div className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-slate-800 to-slate-500 tracking-tight leading-none">
+          {ilDayNumber(date)}
+        </div>
+        <div className="text-sm font-medium text-slate-500 mt-1">
+          {ilMonthName(date)}
+        </div>
+      </div>
+
+      {/* Error / Loading States */}
+      {isLoading && (
+        <div className="text-center pb-4 text-xs text-blue-500 animate-pulse font-medium">
+          טוען נתונים...
         </div>
       )}
+      {status === "error" && (
+        <div className="text-center pb-4 text-xs text-rose-500 font-medium">
+          שגיאה
+        </div>
+      )}
+      {!hasShift && (
+        <div className="text-center pb-4 text-xs text-slate-400">אין משמרת</div>
+      )}
+
+      {/* Actions Area */}
+      <div className="mt-auto bg-slate-50/50 border-t border-slate-100 p-3 flex flex-col gap-2">
+        {/* Selection Buttons */}
+        {hasShift && !isPending && !isApproved && (
+          <div className="grid grid-cols-1 gap-2">
+            {gender !== "Female" && (
+              <SelectionButton
+                active={selection === "early"}
+                disabled={!buttonsEnabled}
+                onClick={() => onSelect(iso, "early")}
+                label="הגעה מוקדמת"
+              />
+            )}
+            <SelectionButton
+              active={selection === "regular"}
+              disabled={!buttonsEnabled}
+              onClick={() => onSelect(iso, "regular")}
+              label="רגיל"
+            />
+          </div>
+        )}
+
+        {/* Cancel Action */}
+        {canCancel && (
+          <button
+            onClick={() => onCancel(iso)}
+            className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-red-100 bg-white py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 hover:border-red-200 transition shadow-sm"
+          >
+            <X size={14} />
+            בטל בקשה
+          </button>
+        )}
+
+        {/* Closed State */}
+        {!withinWindow && hasShift && !isPending && (
+          <div className="flex items-center justify-center gap-1.5 py-2 text-xs text-slate-400 bg-slate-100 rounded-lg">
+            <Clock size={12} />
+            הרשמה סגורה
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+// Helper Components for Cleaner JSX
+function StatusBadge({
+  color,
+  icon,
+  text,
+}: {
+  color: string;
+  icon: React.ReactNode;
+  text: string;
+}) {
+  return (
+    <span
+      className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${color}`}
+    >
+      {icon} {text}
+    </span>
+  );
+}
+
+function SelectionButton({
+  active,
+  disabled,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`
+        relative w-full rounded-xl border px-3 py-2 text-sm font-medium transition-all duration-200 flex items-center justify-between
+        ${
+          active
+            ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-500/20"
+            : "bg-white border-slate-200 text-slate-600 hover:border-blue-300 hover:bg-blue-50/50"
+        }
+        ${
+          disabled
+            ? "cursor-not-allowed opacity-50 bg-slate-100 hover:bg-slate-100 hover:border-slate-200"
+            : ""
+        }
+      `}
+    >
+      <span>{label}</span>
+      {active && <Check size={14} className="animate-in zoom-in" />}
+    </button>
   );
 }

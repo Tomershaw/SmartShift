@@ -6,6 +6,10 @@ export interface Employee {
   priorityRating: number;
   availabilities: Availability[];
   assignedShifts: Shift[];
+
+  // 👇 הוספנו את שני אלה:
+  userId?: string;    // מזהה המשתמש (אם הוא שונה מ-id של העובד)
+  isActive?: boolean; // הסטטוס החדש (פעיל/לא פעיל)
 }
 
 export interface Shift {

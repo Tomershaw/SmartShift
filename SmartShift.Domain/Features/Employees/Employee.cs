@@ -13,6 +13,7 @@ public class Employee
 
     public string Gender { get; set; }
     public ApplicationUser? User { get; set; } // ניווט ל-User
+    public bool IsActive { get; set; } = true;
 
     public string? FirstName { get; private set; }
     public string? LastName { get; private set; }

@@ -118,4 +118,11 @@ export const schedulingApi = {
     const { data } = await api.post<{ success: boolean }>(`/scheduling/shifts/${shiftId}/cancel`);
     return data;
   },
+
+// הוספתי את message?: string כדי שנוכל לקרוא את ההודעה מהשרת אם צריך
+async deleteUser(userId: string): Promise<{ success: boolean; message?: string }> {
+  // שים לב: הנתיב הוא users/ (בלי לוכסן בהתחלה בדרך כלל, תלוי ב-baseURL שלך)
+  const { data } = await api.delete<{ success: boolean; message?: string }>(`/users/${userId}`);
+  return data;
+},
 };

@@ -38,12 +38,4 @@
     <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="4.11.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Endpoints\UserManagement\" />
-  </ItemGroup>
-
-	<ItemGroup>
-		<Folder Include="Endpoints\UserManagement\" />
-	</ItemGroup>
-
 </Project>

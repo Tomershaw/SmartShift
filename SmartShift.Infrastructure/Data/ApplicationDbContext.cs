@@ -45,6 +45,7 @@
             {
                 entity.Property(e => e.FullName).IsRequired();
                 entity.Property(e => e.CreatedAt).IsRequired();
+                entity.HasQueryFilter(u => u.IsActive);
             });
 
             modelBuilder.Entity<RefreshToken>()

@@ -294,6 +294,7 @@ export default function AdminCreateWeekPage() {
   const cur = days[selected];
   const lockedShift = existingByDate[cur.date];
   const isLocked = !!lockedShift;
+  const formattedDate = cur.date.split('-').reverse().join('/');
 
   return (
     <div dir="rtl" className="min-h-screen bg-slate-50/50 pb-20 font-sans text-slate-900">
@@ -320,11 +321,11 @@ export default function AdminCreateWeekPage() {
           </div>
         )}
 
-        {/* === Flex Container: Tabs (Right) + Back Button (Left) === */}
-        <div className="flex flex-col-reverse md:flex-row md:items-center justify-between gap-4 mb-2">
+        {/* === Tabs & Back Button === */}
+        <div className="flex items-center gap-2 mb-6">
             
-            {/* Tabs Area */}
-            <div className="overflow-x-auto py-4 px-4 -mx-4 scrollbar-hide flex-1">
+            {/* 1. Tabs Area */}
+            <div className="flex-1 overflow-x-auto overflow-y-hidden py-3 px-1 scrollbar-hide">
               <div className="flex gap-3 min-w-max">
                 {days.map((d, idx) => {
                   const locked = !!existingByDate[d.date];
@@ -370,52 +371,42 @@ export default function AdminCreateWeekPage() {
               </div>
             </div>
 
-            {/* Desktop Back Button (שמאל למחשב) */}
-            <div className="hidden md:block pl-2">
-               <Link 
-                to="/admin" 
-                className="flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-900 hover:border-slate-300 hover:shadow-md transition-all group"
-               >
-                 <ArrowRight size={14} className="text-slate-400 group-hover:text-slate-800 transition-colors" />
-                 חזרה לניהול
-               </Link>
-            </div>
-        </div>
-        
-        {/* Mobile Back Button (שמאל למובייל) */}
-        {/* הוספתי justify-end כדי להצמיד אותו לשמאל ב-RTL */}
-        <div className="md:hidden mb-2 flex justify-end">
-           <Link 
-            to="/admin" 
-            className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm"
-           >
-             <ArrowRight size={16} />
-             חזרה לניהול
-           </Link>
+            {/* 2. Back Button (Left side) */}
+            <Link 
+              to="/admin" 
+              className="shrink-0 flex flex-col items-center justify-center w-16 h-20 rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-all shadow-sm z-20"
+            >
+              <div className="bg-slate-100 p-2 rounded-full mb-1">
+                 <ArrowRight size={16} />
+              </div>
+              <span className="text-[10px] font-bold text-center leading-tight">חזרה<br/>לניהול</span>
+            </Link>
         </div>
 
         {/* === Main Form Card === */}
         <div className="rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/50 overflow-hidden relative transition-all duration-300">
           
-          {/* Top Status Bar */}
+          {/* Top Status */}
           <div className={`
              px-4 py-4 sm:px-6 sm:py-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4
              ${isLocked ? "bg-slate-50 border-slate-200" : "bg-white border-slate-100"}
           `}>
-             <div className="flex items-start sm:items-center gap-3">
+             <div className="flex items-start gap-3 flex-1 min-w-0">
                 <div className={`p-2.5 rounded-xl shrink-0 ${isLocked ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"}`}>
                    {isLocked ? <Lock size={20} /> : <Calendar size={20} />}
                 </div>
-                <div>
-                   <h2 className="font-bold text-slate-800 text-lg flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 leading-tight">
-                     <span>{HEB_DAYS[selected]}</span>
+                <div className="flex-1 min-w-0">
+                   <h2 className="font-bold text-slate-800 leading-tight flex flex-col sm:flex-row sm:items-baseline gap-0 sm:gap-2">
+                     <span className="text-[1.35rem] sm:text-lg">{HEB_DAYS[selected]}</span>
+                     <span className="sm:hidden text-sm text-slate-500 font-medium mt-0.5 break-words">
+                        {formattedDate}
+                     </span>
                      <span className="hidden sm:inline text-slate-300">|</span>
-                     {/* כאן השינוי: פורמט תאריך הפוך לתצוגה */}
-                     <span className="text-base sm:text-lg dir-ltr text-right sm:text-left font-mono text-slate-600">
-                       {cur.date.split('-').reverse().join('/')}
+                     <span className="hidden sm:inline text-base font-mono text-slate-600 dir-ltr">
+                       {formattedDate}
                      </span>
                    </h2>
-                   <p className="text-xs text-slate-500 mt-1">
+                   <p className="text-xs text-slate-500 mt-1 truncate">
                       {isLocked ? "יום זה נעול (קיימת משמרת)" : "הגדרת פרטי משמרת ליום זה"}
                    </p>
                 </div>
@@ -426,19 +417,17 @@ export default function AdminCreateWeekPage() {
                   type="button"
                   onClick={() => handleDeleteShiftForDate(cur.date)}
                   disabled={deletingShiftId === lockedShift.id}
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 text-xs font-bold text-red-600 bg-white sm:bg-red-50 px-4 py-2 rounded-xl border border-red-100 hover:bg-red-50 sm:hover:bg-red-100 transition-colors shadow-sm sm:shadow-none"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 text-xs font-bold text-red-600 bg-white sm:bg-red-50 px-4 py-2 rounded-xl border border-red-100 hover:bg-red-50 sm:hover:bg-red-100 transition-colors shadow-sm sm:shadow-none shrink-0"
                 >
                   <Trash2 size={14} />
-                  {deletingShiftId === lockedShift.id ? "מבטל..." : "בטל משמרת ליום זה"}
+                  {deletingShiftId === lockedShift.id ? "מבטל..." : "בטל משמרת"}
                 </button>
              )}
           </div>
 
-          {/* Form Content */}
+          {/* Form */}
           <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-6 sm:space-y-8">
-            {/* שאר הקוד זהה לקודם */}
             
-            {/* Toggle Active Switch */}
             <div className="flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-100">
               <label className="flex items-center gap-4 cursor-pointer">
                  <div className="relative">
@@ -470,10 +459,9 @@ export default function AdminCreateWeekPage() {
               )}
             </div>
 
-            {/* Form Fields */}
+            {/* Main Fields */}
             <div className={`space-y-6 sm:space-y-8 transition-all duration-300 ${(!cur.active && !isLocked) ? "opacity-30 pointer-events-none grayscale" : "opacity-100"}`}>
               
-              {/* Row 1: Name & Time */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                  <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">שם המשמרת</label>
@@ -489,37 +477,45 @@ export default function AdminCreateWeekPage() {
                     </div>
                  </div>
 
-                 <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">שעת התחלה</label>
-                      <div className="relative">
-                         <input
-                            type="time"
-                            className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 pl-8 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all disabled:bg-slate-50 disabled:text-slate-400"
-                            value={cur.time}
-                            onChange={(e) => update(selected, { time: e.target.value })}
-                            disabled={isLocked || !cur.active}
-                         />
-                         <Clock className="absolute left-2.5 top-2.5 text-slate-400" size={16} />
-                      </div>
-                    </div>
-
-                    <div>
+                 {/* שדות שעה ותאריך - כאן התיקון הגדול! */}
+                 <div className="grid grid-cols-2 gap-3">
+                    
+                    {/* תאריך - צד ימין */}
+                    <div className="min-w-0"> {/* min-w-0 מציל את המצב ב-Grid */}
                       <label className="block text-sm font-semibold text-slate-700 mb-1.5">תאריך</label>
                       <div className="relative">
                          <input
                             type="date"
-                            className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 pl-8 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all disabled:bg-slate-50 disabled:text-slate-400"
+                            // w-full + min-w-0 + box-border מבטיח שלא יחרוג
+                            className="block w-full min-w-0 box-border rounded-xl border border-slate-200 bg-white px-2 py-2.5 text-sm text-right outline-none appearance-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all disabled:bg-slate-50 disabled:text-slate-400"
                             value={cur.date}
                             onChange={(e) => handleDateChange(e.target.value)}
                             disabled={isLocked} 
                          />
                       </div>
                     </div>
+
+                    {/* שעה - צד שמאל */}
+                    <div className="min-w-0">
+                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">שעת התחלה</label>
+                      <div className="relative">
+                         <input
+                            type="time"
+                            // כנ"ל - w-full + min-w-0
+                            className="block w-full min-w-0 box-border rounded-xl border border-slate-200 bg-white px-2 py-2.5 text-sm text-right outline-none appearance-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all disabled:bg-slate-50 disabled:text-slate-400"
+                            value={cur.time}
+                            onChange={(e) => update(selected, { time: e.target.value })}
+                            disabled={isLocked || !cur.active}
+                         />
+                         {/* אייקון מופיע רק במחשב */}
+                         <Clock className="hidden sm:block absolute left-2.5 top-2.5 text-slate-400" size={16} />
+                      </div>
+                    </div>
+
                  </div>
               </div>
 
-              {/* Row 2: Staffing */}
+              {/* Staffing */}
               <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 sm:p-5">
                  <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-4">
                     <Users size={16} className="text-emerald-500"/>
@@ -557,7 +553,7 @@ export default function AdminCreateWeekPage() {
                  </div>
               </div>
 
-              {/* Row 3: Description */}
+              {/* Description */}
               <div>
                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">תיאור והערות</label>
                  <div className="relative">
@@ -575,7 +571,6 @@ export default function AdminCreateWeekPage() {
 
             </div>
 
-            {/* Error Message */}
             {errorMsg && (
                <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-100 rounded-xl text-red-700 text-sm animate-in slide-in-from-top-2">
                   <AlertTriangle size={18} className="shrink-0 mt-0.5" />
@@ -583,7 +578,6 @@ export default function AdminCreateWeekPage() {
                </div>
             )}
 
-            {/* Footer Actions */}
             <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
                <div className="text-sm text-slate-500">
                   <span className="font-bold text-slate-800">{activeCount}</span> ימים מסומנים ליצירה
@@ -613,7 +607,6 @@ export default function AdminCreateWeekPage() {
           </form>
         </div>
 
-        {/* Success Modal */}
         {successMsg && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl text-center transform scale-100 animate-in zoom-in-95">

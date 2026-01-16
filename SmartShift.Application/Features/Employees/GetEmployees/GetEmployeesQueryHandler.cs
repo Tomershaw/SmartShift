@@ -15,18 +15,22 @@ public class GetEmployeesQueryHandler : IRequestHandler<GetEmployeesQuery, IEnum
         ICurrentUserService currentUserService)
     {
         _employeeRepository = employeeRepository;
-        _currentUserService = currentUserService;   
+        _currentUserService = currentUserService;
     }
 
     public async Task<IEnumerable<EmployeeDto>> Handle(GetEmployeesQuery request, CancellationToken cancellationToken)
     {
         var tenantId = _currentUserService.GetTenantId();
-        var employees = await _employeeRepository.GetAllAsync(tenantId);
+
+        // ?? שינוי 1: הוספנו true כדי לקבל גם עובדים לא פעילים
+        var employees = await _employeeRepository.GetAllAsync(tenantId, includeInactive: true);
 
         return employees.Select(e => new EmployeeDto(
             e.Id.ToString(),
             e.Name,
-            e.PriorityRating
+            e.PriorityRating,
+            e.IsActive,
+            e.UserId
         ));
     }
-} 
+}

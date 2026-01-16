@@ -132,47 +132,117 @@ public static class SeedData
         }
     }
 
+
+
     public static async Task SeedAdminUserAsync(IServiceProvider serviceProvider, Guid tenantId)
     {
         try
         {
             var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-            var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
-            var adminEmail = "simon1@example.com";
-            var adminUser = await userManager.FindByEmailAsync(adminEmail);
+            // ההגדרות הקבועות שלנו
+            var targetUserName = "simon1";
+            var targetEmail = "SimonHamelech@gmail.com";
+            var targetId = "c0d7a0b3-9580-4ad8-ab65-7fbd4fc31ff8"; // ה-ID שאתה חייב
 
-            if (adminUser == null)
+            // 1. חיפוש המשתמש לפי שם (כולל מחוקים)
+            var existingUser = await userManager.Users
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(u => u.UserName == targetUserName);
+
+            // 2. בדיקת התנגשות: האם המשתמש קיים אבל עם ID לא נכון?
+            if (existingUser != null && existingUser.Id.ToString().ToLower() != targetId.ToLower())
             {
-                adminUser = new ApplicationUser
-                {
-                    UserName = "simon1",
-                    Email = adminEmail,
-                    EmailConfirmed = true,
-                    FullName = "Simon Shaw",
-                    TenantId = tenantId
-                };
+                Console.WriteLine($"⚠️ User '{targetUserName}' exists but with WRONG ID ({existingUser.Id}). Deleting to recreate with correct ID...");
 
-                var result = await userManager.CreateAsync(adminUser, "Admin123!");
-                if (!result.Succeeded)
+                // מחיקה כפויה של המשתמש הישן כדי לפנות את השם
+                // קודם מנקים תפקידים כדי למנוע שגיאות Foreign Key
+                var roles = await userManager.GetRolesAsync(existingUser);
+                if (roles.Count > 0)
                 {
-                    Console.WriteLine("❌ Failed to create admin user:");
-                    foreach (var error in result.Errors)
-                        Console.WriteLine($"   {error.Description}");
-                    return;
+                    await userManager.RemoveFromRolesAsync(existingUser, roles);
+                }
+
+                await userManager.DeleteAsync(existingUser);
+                existingUser = null; // מאפסים כדי שייכנס ללוגיקת היצירה למטה
+                Console.WriteLine("🗑️ Wrong user deleted.");
+            }
+
+            // 3. בדיקה נוספת: האם ה-ID תפוס ע"י מישהו אחר (שם משתמש אחר)?
+            if (existingUser == null)
+            {
+                var userWithTargetId = await userManager.Users
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(u => u.Id == targetId);
+
+                if (userWithTargetId != null)
+                {
+                    // מקרה נדיר: ה-ID תפוס אבל השם משתמש שונה. מוחקים גם אותו.
+                    Console.WriteLine($"⚠️ Target ID is taken by '{userWithTargetId.UserName}'. Deleting...");
+                    await userManager.DeleteAsync(userWithTargetId);
                 }
             }
 
-            if (!await userManager.IsInRoleAsync(adminUser, "Admin"))
+            // 4. יצירה מחדש (אם המשתמש לא קיים או שנמחק בשלבים הקודמים)
+            if (existingUser == null)
             {
-                await userManager.AddToRoleAsync(adminUser, "Admin");
+                Console.WriteLine("Creating new admin user with FORCED ID...");
+
+                var newAdmin = new ApplicationUser
+                {
+                    Id = targetId, // 👈 הקביעה הקריטית של ה-ID
+                    UserName = targetUserName,
+                    Email = targetEmail,
+                    EmailConfirmed = true,
+                    FullName = "Simon Shaw",
+                    TenantId = tenantId,
+                    IsActive = true
+                };
+
+                var result = await userManager.CreateAsync(newAdmin, "Change12!");
+                if (!result.Succeeded)
+                {
+                    Console.WriteLine("❌ Failed to create user:");
+                    foreach (var err in result.Errors) Console.WriteLine($"   {err.Description}");
+                    return;
+                }
+
+                existingUser = newAdmin; // עדכון המשתנה להמשך
+                Console.WriteLine("✅ User created successfully.");
+            }
+            else
+            {
+                // המשתמש קיים ועם ה-ID הנכון
+                Console.WriteLine("✅ User exists with correct ID. Verifying status...");
+                bool needUpdate = false;
+
+                if (!existingUser.IsActive)
+                {
+                    existingUser.IsActive = true;
+                    existingUser.DeletedAt = null;
+                    needUpdate = true;
+                    Console.WriteLine("🔄 Reactivating user...");
+                }
+
+                if (existingUser.Email != targetEmail)
+                {
+                    existingUser.Email = targetEmail;
+                    needUpdate = true;
+                }
+
+                if (needUpdate) await userManager.UpdateAsync(existingUser);
             }
 
-            Console.WriteLine("✅ Admin user seeded successfully.");
+            // 5. וידוא תפקיד Admin (תמיד רץ בסוף)
+            if (!await userManager.IsInRoleAsync(existingUser, "Admin"))
+            {
+                await userManager.AddToRoleAsync(existingUser, "Admin");
+                Console.WriteLine("✅ Role 'Admin' assigned.");
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Error seeding admin user: {ex.Message}");
+            Console.WriteLine($"❌ Error seeding admin: {ex.Message}");
         }
     }
 

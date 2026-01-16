@@ -13,9 +13,19 @@ public class EmployeeRepository : IEmployeeRepository
         _context = context;
     }
 
-    public async Task<IEnumerable<Employee>> GetAllAsync(CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<Employee>> GetAllAsync(Guid tenantId, bool includeInactive = false)
     {
-        return await _context.Employees.ToListAsync(cancellationToken);
+        var query = _context.Employees.AsQueryable();
+
+        // ?? אם ביקשנו גם לא פעילים -> תתעלם מהפילטר הגלובלי
+        if (includeInactive)
+        {
+            query = query.IgnoreQueryFilters();
+        }
+
+        return await query
+            .Where(e => e.TenantId == tenantId)
+            .ToListAsync();
     }
 
     public async Task<Employee> AddAsync(Employee employee, CancellationToken cancellationToken = default)

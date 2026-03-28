@@ -40,7 +40,7 @@ public class Employee
 
     public Employee(string firstName, string lastName, string email, string phoneNumber,
         int priorityRating = 0, int skillLevel = 1,
-        int maxShiftsPerWeek = 0, EmployeeShiftAvailability shiftAvailability = EmployeeShiftAvailability.Regular,
+        int maxShiftsPerWeek = 0, 
         string adminNotes = "", string employeeNotes = "")
     {
         Id = Guid.NewGuid();

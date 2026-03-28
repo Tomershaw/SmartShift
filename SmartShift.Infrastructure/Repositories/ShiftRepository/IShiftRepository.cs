@@ -45,3 +45,4 @@ public interface IShiftRepository
     Task<bool> ExistsShiftOnDateAsync(Guid tenantId, DateTimeOffset date, CancellationToken cancellationToken = default);
     Task SoftDeleteAsync(Guid id, Guid tenantId, CancellationToken cancellationToken);
 }
+ 

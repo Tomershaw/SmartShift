@@ -26,7 +26,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SmartShift.Application\SmartShift.Application.csproj" />
-    <ProjectReference Include="..\SmartShift.Infrastructure\SmartShift.Infrastructure.csproj" />
+    <ProjectReference Include="..\SmartShift.Infrastructure\SmartShift.Infrastructure.csproj" /> 
     <ProjectReference Include="..\SmartShift.Domain\SmartShift.Domain.csproj" />
   </ItemGroup>
 

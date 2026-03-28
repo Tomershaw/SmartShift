@@ -287,55 +287,55 @@ export default function AdminShiftsPage() {
 
   return (
     <div dir="rtl" className="mx-auto max-w-7xl p-6">
-      <header className="mb-4 flex items-center justify-between">
+      
+      {/* כפתור חזרה נפרד שיושב למעלה בצד שמאל */}
+      <div className="mb-4 flex justify-start">
+        <Link
+          to="/admin"
+          className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-800 hover:bg-sky-100 hover:border-sky-300 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-sky-300"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" className="opacity-80">
+            <path fill="currentColor" d="M10 19l-7-7l7-7v4h8v6h-8v4z" />
+          </svg>
+          חזרה
+        </Link>
+      </div>
+
+      {/* שורת הכותרת והפעולות */}
+      <header className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        
+        {/* צד ימין - כותרת ותאריכים מקובצים ביחד */}
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900">
             ניהול משמרות
           </h1>
+          <p className="text-slate-600 text-sm mt-1">
+            שבוע החל מ-{startISO} עד {endISO}
+          </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* צד שמאל - פעולות אקטיביות בלבד */}
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={handleCreateWeekShifts}
-            className="rounded-xl px-4 py-2 text-sm text-white bg-slate-900 hover:bg-slate-800"
+            className="rounded-xl px-5 py-2.5 text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 shadow-sm transition"
           >
             צור משמרות לשבוע
           </button>
-
+          
           <button
             onClick={handleConfirm}
             disabled={!grid || confirming}
-            className={`rounded-xl px-4 py-2 text-sm text-white ${
+            className={`rounded-xl px-5 py-2.5 text-sm font-medium text-white shadow-sm transition ${
               !grid || confirming
-                ? "bg-slate-400"
+                ? "bg-slate-400 cursor-not-allowed"
                 : "bg-emerald-600 hover:bg-emerald-500"
             }`}
           >
             {confirming ? "מאשר..." : "אשר סופית"}
           </button>
-
-          <Link
-            to="/admin"
-            className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium
-                     text-sky-800 hover:bg-sky-100 hover:border-sky-300 shadow-sm transition
-                     focus:outline-none focus:ring-2 focus:ring-sky-300"
-          >
-            <svg
-              width="16"  
-              height="16"
-              viewBox="0 0 24 24"
-              className="opacity-80"
-            >
-              <path fill="currentColor" d="M10 19l-7-7l7-7v4h8v6h-8v4z" />
-            </svg>
-            חזרה למרכז ניהול
-          </Link>
         </div>
       </header>
-
-      <p className="text-slate-600 text-sm mb-2">
-        שבוע החל מ-{startISO} עד {endISO}
-      </p>
 
       {!grid && (
         <div className="rounded-xl border border-dashed p-6 text-center text-slate-500">

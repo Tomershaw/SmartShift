@@ -21,6 +21,8 @@ using SmartShift.Infrastructure.Repositories;
 using System.Reflection;
 using System.Security.Claims;
 using System.Text;
+using SmartShift.Infrastructure.Vault;
+
 using SmartShift.Infrastructure.Email;
 
 
@@ -29,6 +31,27 @@ using SmartShift.Infrastructure.Interfaces;
 
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ✅ OCI Vault — load secrets in production via Instance Principal
+if (builder.Environment.IsProduction())
+{
+    var vaultOcid = builder.Configuration["OciVault:VaultOcid"]
+        ?? throw new InvalidOperationException("OciVault:VaultOcid is not configured in appsettings.json");
+
+    builder.Configuration.AddOciVault(vaultOcid,
+    [
+        "ConnectionStrings--DefaultConnection",
+        "Jwt--Key",
+        "Jwt--Issuer",
+        "Jwt--Audience",
+        "CORS--ORIGINS",
+        "SemanticKernel--OpenAI--ApiKey",
+        "Brevo--SmtpLogin",
+        "Brevo--SmtpKey",
+        "Brevo--FromEmail"
+    ]);
+}
+
 
 // ✅ Swagger
 builder.Services.AddEndpointsApiExplorer();

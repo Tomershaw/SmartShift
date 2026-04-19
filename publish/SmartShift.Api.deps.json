@@ -987,6 +987,14 @@
           }
         }
       },
+      "NLog/4.7.2": {
+        "runtime": {
+          "lib/netstandard2.0/NLog.dll": {
+            "assemblyVersion": "4.0.0.0",
+            "fileVersion": "4.7.2.11786"
+          }
+        }
+      },
       "Npgsql/9.0.3": {
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "9.0.4"
@@ -1008,6 +1016,48 @@
           "lib/net8.0/Npgsql.EntityFrameworkCore.PostgreSQL.dll": {
             "assemblyVersion": "9.0.4.0",
             "fileVersion": "9.0.4.0"
+          }
+        }
+      },
+      "OCI.DotNetSDK.Common/129.3.0": {
+        "dependencies": {
+          "NLog": "4.7.2",
+          "Newtonsoft.Json": "13.0.3",
+          "Polly": "7.2.0",
+          "Portable.BouncyCastle": "1.9.0",
+          "System.IdentityModel.Tokens.Jwt": "8.15.0"
+        },
+        "runtime": {
+          "lib/netstandard2.0/OCI.DotNetSDK.Common.dll": {
+            "assemblyVersion": "0.0.0.0",
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "OCI.DotNetSDK.Secrets/129.3.0": {
+        "dependencies": {
+          "OCI.DotNetSDK.Common": "129.3.0"
+        },
+        "runtime": {
+          "lib/netstandard2.0/OCI.DotNetSDK.Secrets.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "Polly/7.2.0": {
+        "runtime": {
+          "lib/netstandard2.0/Polly.dll": {
+            "assemblyVersion": "7.0.0.0",
+            "fileVersion": "7.2.0.0"
+          }
+        }
+      },
+      "Portable.BouncyCastle/1.9.0": {
+        "runtime": {
+          "lib/netstandard2.0/BouncyCastle.Crypto.dll": {
+            "assemblyVersion": "1.9.0.0",
+            "fileVersion": "1.9.0.1"
           }
         }
       },
@@ -1246,6 +1296,8 @@
           "Microsoft.SemanticKernel": "1.4.0",
           "Microsoft.SemanticKernel.Plugins.OpenApi": "1.4.0-alpha",
           "Npgsql.EntityFrameworkCore.PostgreSQL": "9.0.4",
+          "OCI.DotNetSDK.Common": "129.3.0",
+          "OCI.DotNetSDK.Secrets": "129.3.0",
           "SmartShift.Domain": "1.0.0",
           "System.IdentityModel.Tokens.Jwt": "8.15.0"
         },
@@ -1726,6 +1778,13 @@
       "path": "newtonsoft.json/13.0.3",
       "hashPath": "newtonsoft.json.13.0.3.nupkg.sha512"
     },
+    "NLog/4.7.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-tfZNTOYr0TwvJNrXsJsVdZPSgIpYN1rXHnAZAadeaIbz+v18agNCCxgZXnXQqNKNizkogJ68zYTNKavyQFWwrg==",
+      "path": "nlog/4.7.2",
+      "hashPath": "nlog.4.7.2.nupkg.sha512"
+    },
     "Npgsql/9.0.3": {
       "type": "package",
       "serviceable": true,
@@ -1739,6 +1798,34 @@
       "sha512": "sha512-mw5vcY2IEc7L+IeGrxpp/J5OSnCcjkjAgJYCm/eD52wpZze8zsSifdqV7zXslSMmfJG2iIUGZyo3KuDtEFKwMQ==",
       "path": "npgsql.entityframeworkcore.postgresql/9.0.4",
       "hashPath": "npgsql.entityframeworkcore.postgresql.9.0.4.nupkg.sha512"
+    },
+    "OCI.DotNetSDK.Common/129.3.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-4rBnph8FXSotR+Kzg6eUYEsUqL/QbCPqmCCF4ahSCwf/cTRFjdlUBRo0Nxur4z8CI8ntLgFRAEaz1e2JXGh8qg==",
+      "path": "oci.dotnetsdk.common/129.3.0",
+      "hashPath": "oci.dotnetsdk.common.129.3.0.nupkg.sha512"
+    },
+    "OCI.DotNetSDK.Secrets/129.3.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-xORfa+MSWuhZ8CmZXwuopMTAkXdhB2kxjlAREXF1MdzvCxlEXMvZy0FvsONc+mve60GizRDhJP/RoGZEOr1bww==",
+      "path": "oci.dotnetsdk.secrets/129.3.0",
+      "hashPath": "oci.dotnetsdk.secrets.129.3.0.nupkg.sha512"
+    },
+    "Polly/7.2.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-fbtSRyqVSd5AS7O4Pm2Mnw7zKKJk7Z3rOfNnKSTfPkTxM8Z1JJFZzzjqLAOTG6AyUkormSWMO2AhdlygF/384Q==",
+      "path": "polly/7.2.0",
+      "hashPath": "polly.7.2.0.nupkg.sha512"
+    },
+    "Portable.BouncyCastle/1.9.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-eZZBCABzVOek+id9Xy04HhmgykF0wZg9wpByzrWN7q8qEI0Qen9b7tfd7w8VA3dOeesumMG7C5ZPy0jk7PSRHw==",
+      "path": "portable.bouncycastle/1.9.0",
+      "hashPath": "portable.bouncycastle.1.9.0.nupkg.sha512"
     },
     "SharpYaml/2.1.0": {
       "type": "package",

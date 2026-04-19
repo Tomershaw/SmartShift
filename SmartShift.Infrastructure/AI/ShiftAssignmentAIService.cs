@@ -223,9 +223,10 @@ public class ShiftAssignmentAIService : IShiftAssignmentAIService
                 }
 
                 // Select best rejected employees based on score
+                var emergencyPoolSize = Math.Max(missing * 2, shift.RequiredEmployeeCount + 2);
                 var bestRejected = rejectedScored
                     .OrderByDescending(x => x.Score)
-                    .Take(missing)
+                    .Take(emergencyPoolSize)
                     .Select(x => (x.Emp, x.Arrival))
                     .ToList();
 
@@ -273,7 +274,8 @@ public class ShiftAssignmentAIService : IShiftAssignmentAIService
             "📊 Competition detected! Starting detailed AdminNotes scoring for {Count} candidates...",
             compatibleWithArrival.Count);
 
-        var scored = new List<(Employee Emp, ShiftScoringService.ScoreBreakdown Score)>();
+        //var scored = new List<(Employee Emp, ShiftScoringService.ScoreBreakdown Score)>();
+        var scored = new List<CandidateContext>();
 
         foreach (var p in compatibleWithArrival)
         {
@@ -308,7 +310,9 @@ public class ShiftAssignmentAIService : IShiftAssignmentAIService
                 "✅ Employee {Name} (ID: {Id}) | FinalScore={Total:F2} (AdminBoost={Boost:F2})",
                 $"{p.Emp.FirstName} {p.Emp.LastName}", p.Emp.Id, s.Total, s.AdminBoost);
 
-            scored.Add((Emp: p.Emp, Score: s));
+            scored.Add(new CandidateContext(p.Emp, p.Arrival, s));
+
+            //scored.Add((Emp: p.Emp, Score: s));
         }
 
         if (scored.Count == 0)
@@ -332,7 +336,7 @@ public class ShiftAssignmentAIService : IShiftAssignmentAIService
             .ThenByDescending(x => x.Emp.PriorityRating)
             .ThenByDescending(x => x.Emp.SkillLevel)
             .ThenBy(x => x.Emp.Id)
-            .Select(x => x.Emp)
+            //.Select(x => x.Emp)
             .Take(topCount)
             .ToList();
 
@@ -354,8 +358,13 @@ public class ShiftAssignmentAIService : IShiftAssignmentAIService
         // Let AI choose from top bucket
         // ========================================
         List<Employee> aiList;
+
+        var earlyCount = topBucket.Count(c => c.Arrival.ToString() == "Early");
+        _logger.LogInformation("🚀 ABOUT TO CALL AI: Shift needs {Req} total, min {MinEarly} early. Sending {TotalBucket} candidates. Out of them, {EarlyInBucket} are Early.",
+            shift.RequiredEmployeeCount, shift.MinimumEarlyEmployees, topBucket.Count, earlyCount);
         try
         {
+            // פה הכל תקין: שולחים את המעטפות ל-AI, והוא מחזיר לנו רשימת עובדים (Employee)
             var aiPick = await GetAIRecommendationsAsync(shift, topBucket, cancellationToken);
             aiList = aiPick.DistinctBy(e => e.Id).ToList();
             _logger.LogInformation("🤖 AI selected {Count} employees", aiList.Count);
@@ -363,14 +372,19 @@ public class ShiftAssignmentAIService : IShiftAssignmentAIService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "AI selection failed. Falling back to topBucket.");
-            aiList = topBucket;
+            // תיקון 1 (פותר את CS0029): אי אפשר להשוות רשימת עובדים לרשימת מעטפות.
+            // אנחנו עושים Select כדי "לשלוף" רק את העובד מתוך כל מעטפה.
+            aiList = topBucket.Select(c => c.Emp).ToList();
         }
 
         // Ensure we have enough employees
         if (aiList.Count < shift.RequiredEmployeeCount)
         {
             var add = topBucket
-                .Where(e => aiList.All(p => p.Id != e.Id))
+                // תיקון 2 (פותר את CS1061): מחפשים את ה-Id בתוך ה-Emp שנמצא בתוך המעטפה (c)
+                .Where(c => aiList.All(p => p.Id != c.Emp.Id))
+                // תיקון 3: אחרי שמצאנו את מי שחסר, אנחנו שולפים אותו מהמעטפה לפני שמכניסים לרשימה
+                .Select(c => c.Emp)
                 .Take(shift.RequiredEmployeeCount - aiList.Count);
 
             aiList.AddRange(add);
@@ -474,41 +488,77 @@ public class ShiftAssignmentAIService : IShiftAssignmentAIService
     // ------------ Helpers ------------
     private async Task<IEnumerable<Employee>> GetAIRecommendationsAsync(
     Shift shift,
-    List<Employee> candidates,
+    List<CandidateContext> candidates,
     CancellationToken cancellationToken)
     {
+        // 1. חילוץ היום בשבוע כדי שה-AI יבין את רמת העומס (חמישי=לחוץ, ראשון=רגוע)
+        var israelTz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Jerusalem");
+        var localTime = TimeZoneInfo.ConvertTime(shift.StartTime, israelTz);
+        string dayOfWeekHebrew = localTime.DayOfWeek switch
+        {
+            DayOfWeek.Sunday => "ראשון",
+            DayOfWeek.Monday => "שני",
+            DayOfWeek.Tuesday => "שלישי",
+            DayOfWeek.Wednesday => "רביעי",
+            DayOfWeek.Thursday => "חמישי",
+            DayOfWeek.Friday => "שישי",
+            DayOfWeek.Saturday => "שבת",
+            _ => ""
+        };
+
+        // 2. ה-AI סורק את המעטפות ומחלץ את כל הנתונים, כולל הערות מנהל וזמינות
         var json = JsonSerializer.Serialize(
-          candidates.Select((e, i) => new
+          candidates.Select((c, i) => new
           {
               Index = i,
-              e.Id,
-              Name = $"{e.FirstName} {e.LastName}",
-              e.SkillLevel,
-              e.PriorityRating,
-              e.MaxShiftsPerWeek
+              c.Emp.Id,
+              Name = $"{c.Emp.FirstName} {c.Emp.LastName}",
+              c.Emp.SkillLevel,
+              c.Emp.PriorityRating,
+              c.Emp.MaxShiftsPerWeek,
+              Availability = c.Arrival.ToString(),
+              AdminNotes = string.IsNullOrWhiteSpace(c.Emp.AdminNotes) ? "None" : c.Emp.AdminNotes
           }),
           new JsonSerializerOptions { WriteIndented = true });
 
+        _logger.LogInformation("📦 JSON PAYLOAD TO AI:\n{JsonPayload}", json);
+
+        // 3. הפרומפט שנועל את ה-AI ומכיל את השכל העסקי לגבי אולמות, חניכה וצוותים
         var prompt = $"""
-            You are picking employees for a single shift.
-
-            Shift:
-            - Time: {shift.StartTime:yyyy-MM-dd HH:mm}
-            - Required: {shift.RequiredEmployeeCount}
-            - Minimum: {shift.MinimumEmployeeCount}
-            - Minimum Early: {shift.MinimumEarlyEmployees}
-            - Skill Required: {shift.SkillLevelRequired}
-
-            Candidates (pre-filtered/scored):
+            You are an elite Shift Scheduling AI orchestrating the perfect team dynamic.
+            Event Details: {shift.Description}
+            
+            Requirements:
+            - Target Shift Size: {shift.RequiredEmployeeCount} employees
+            - Minimum 'Early' Arrivals Needed: {shift.MinimumEarlyEmployees}
+            
+            Candidates available (Sorted by base system score: Index 0 is the strongest candidate):
             {json}
+            
+            CRITICAL EXECUTION ORDER (YOU MUST FOLLOW THESE RULES IN EXACT ORDER):
+            
+            STEP 1: HARD QUOTAS (UNBREAKABLE RULES)
+            - You MUST return an array of EXACTLY {shift.RequiredEmployeeCount} distinct indexes. No more, no less.
+            - From those selected, you MUST include AT LEAST {shift.MinimumEarlyEmployees} candidates who have Availability="Early". 
+            - DO NOT violate these counts under ANY circumstances. If you must select a low-skill worker to meet the "Early" quota, DO IT.
 
-            Pick the best {shift.RequiredEmployeeCount} indexes.
-            Rules: fit, skill, priority, fairness; try to satisfy Minimum Early if candidate set allows.
-            Return ONLY a JSON array of indexes, e.g. [0,2,4].
+            STEP 2: THE TRAINING PROTOCOL (HUMAN-IN-THE-LOOP)
+            - Read the Event Details. If the exact phrase "מתאים לחפיפה" is present: You are authorized to select EXACTLY ONE junior/rookie (SkillLevel 1 or 2) across the entire shift (can be Early or Regular), ONLY IF one is available in the candidates list.
+            - MENTORSHIP RULE: If you select a rookie, you MUST pair them with a highly skilled veteran (SkillLevel 4 or 5) who has the same Availability.
+            - If the phrase "מתאים לחפיפה" is NOT in the description, or if no rookies applied, DO NOT explicitly select rookies. Prioritize the strongest candidates (lowest Index).
+
+            STEP 3: TEAM SYNERGY
+            - Read the "AdminNotes" carefully. 
+            - If notes indicate two people work exceptionally well together, you MUST try to select both of them.
+            - Avoid pairing candidates with negative synergy.
+            
+            Return ONLY a valid JSON array of integer indexes (e.g. [0, 2, 4, 5, 6, 7]). Do not add markdown formatting, backticks, or explanations.
             """;
 
         var resp = await _kernel.InvokePromptAsync(prompt, cancellationToken: cancellationToken);
         var raw = resp.GetValue<string>()?.Trim() ?? "[]";
+
+        _logger.LogInformation("📥 RAW AI RESPONSE: {AiResponse}", raw);
 
         var indexes = ParseIndexArraySafely(raw)
           .Where(i => i >= 0 && i < candidates.Count)
@@ -516,7 +566,9 @@ public class ShiftAssignmentAIService : IShiftAssignmentAIService
           .ToList();
 
         if (indexes.Count == 0) return Enumerable.Empty<Employee>();
-        return indexes.Select(i => candidates[i]).DistinctBy(e => e.Id).ToList();
+
+        // 4. בסוף התהליך: פותחים את המעטפות שנבחרו ומחזירים רק את העובדים החוצה
+        return indexes.Select(i => candidates[i].Emp).DistinctBy(e => e.Id).ToList();
     }
 
     private static string DescribeArrival(EmployeeShiftAvailability a)
@@ -524,24 +576,36 @@ public class ShiftAssignmentAIService : IShiftAssignmentAIService
 
     private static List<int> ParseIndexArraySafely(string text)
     {
-        try
+        if (string.IsNullOrWhiteSpace(text)) return new List<int>();
+
+        // 1. מנקים את החפירות של ה-AI (מעיפים את המארקדאון)
+        var cleanText = text.Trim();
+
+        // אם ה-AI עטף את זה ב- ```json ... ``` נשלוף רק את מה שבתוך הסוגריים המרובעים
+        var match = Regex.Match(cleanText, @"\[.*?\]", RegexOptions.Singleline);
+        if (match.Success)
         {
-            var arr = JsonSerializer.Deserialize<List<int>>(text);
-            if (arr != null) return arr;
-        }
-        catch
-        {
-            // fallback
+            cleanText = match.Value;
         }
 
-        return Regex.Matches(text, @"\d+")
+        try
+        {
+            // 2. מנסים לקרוא את ה-JSON הנקי
+            var arr = JsonSerializer.Deserialize<List<int>>(cleanText);
+            if (arr != null) return arr;
+        }
+        catch (JsonException)
+        {
+            // אם בכל זאת נכשל, נמשיך לחילוץ הבטוח
+        }
+
+        // 3. חילוץ בטוח: שולפים בכוח כל מספר שיש בטקסט
+        return Regex.Matches(cleanText, @"\d+")
           .Select(m => int.Parse(m.Value))
           .ToList();
     }
 
-    private async Task<AdminNotesScore> GetAdminNotesScoreAsync(
-    string adminNotes,
-    CancellationToken cancellationToken = default)
+    private async Task<AdminNotesScore> GetAdminNotesScoreAsync(string adminNotes, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(adminNotes))
         {
@@ -551,25 +615,44 @@ public class ShiftAssignmentAIService : IShiftAssignmentAIService
 
         try
         {
-            var safeNotes = adminNotes.Replace("\"", "'");
+            // 1. ניקוי יסודי: מונע מתווים מיוחדים ובעיקר ירידות שורה לשבור את ה-JSON שנשלח ל-OpenAI
+            var safeNotes = adminNotes
+                .Replace("\\", "\\\\") // מטפל בלוכסנים
+                .Replace("\"", "'")    // מחליף גרשיים כפולות בבודדות
+                .Replace("\r", " ")    // מעיף ירידות שורה
+                .Replace("\n", " ")    // מעיף ירידות שורה
+                .Replace("\t", " ")    // מעיף טאבים
+                .Trim();
 
             _logger.LogInformation("🔍 AdminNotesScore: Analyzing notes → '{Notes}'", safeNotes);
 
-            var prompt =
-                "You are an HR expert analyzing staff notes. Your task is to rate an employee based on the provided admin note.\n" +
-                $"Note: \"{safeNotes}\"\n\n" +
-                "Rate the employee on a scale of 1 (Poor/High Risk) to 10 (Excellent/Asset) for the following criteria:\n" +
-                "1. Reliability: Consistency, Punctuality, and commitment.\n" +
-                "2. SkillDepth: Proficiency and mastery of the job role.\n" +
-                "3. Attitude: Positivity, teamwork ability, and problem-solving skills.\n\n" +
-                "Return ONLY a JSON object, strictly following this schema:\n" +
-                "{ \"reliability\": 5, \"skill_depth\": 5, \"attitude\": 5 }";
+            // 2. שימוש ב-Template של Semantic Kernel
+            var prompt = @"
+            You are an HR expert analyzing staff notes. Your task is to rate an employee based on the provided admin note.
+            Note: ""{{$notes}}""
+
+            Rate the employee on a scale of 1 (Poor/High Risk) to 10 (Excellent/Asset) for the following criteria:
+            1. Reliability: Consistency, Punctuality, and commitment.
+            2. SkillDepth: Proficiency and mastery of the job role.
+            3. Attitude: Positivity, teamwork ability, and problem-solving skills.
+
+            Return ONLY a JSON object, strictly following this schema:
+            { ""reliability"": 5, ""skill_depth"": 5, ""attitude"": 5 }";
 
             _logger.LogDebug("🤖 AdminNotesScore: Sending request to AI...");
 
-            var response = await _kernel.InvokePromptAsync(prompt, cancellationToken: cancellationToken);
+            // 3. הזרקת המשתנה בצורה בטוחה
+            var arguments = new KernelArguments { ["notes"] = safeNotes };
+            var response = await _kernel.InvokePromptAsync(prompt, arguments, cancellationToken: cancellationToken);
 
             var jsonText = response.GetValue<string>()?.Trim() ?? "{}";
+
+            // 4. חילוץ חכם ל-JSON
+            var match = Regex.Match(jsonText, @"\{.*\}", RegexOptions.Singleline);
+            if (match.Success)
+            {
+                jsonText = match.Value;
+            }
 
             _logger.LogInformation("📥 AdminNotesScore: AI Response → {Json}", jsonText);
 
@@ -610,4 +693,100 @@ public class ShiftAssignmentAIService : IShiftAssignmentAIService
             return new AdminNotesScore(5, 5, 5);
         }
     }
+
+    //private async Task<AdminNotesScore> GetAdminNotesScoreAsync(
+    //string adminNotes,
+    //CancellationToken cancellationToken = default)
+    //{
+    //    if (string.IsNullOrWhiteSpace(adminNotes))
+    //    {
+    //        _logger.LogDebug("📝 AdminNotesScore: No admin notes - using default (5,5,5)");
+    //        return new AdminNotesScore(5, 5, 5);
+    //    }
+
+    //    try
+    //    {
+    //        // 1. ניקוי יסודי: מונע מתווים מיוחדים ובעיקר ירידות שורה לשבור את ה-JSON שנשלח ל-OpenAI
+    //        var safeNotes = adminNotes
+    //            .Replace("\\", "\\\\") // מטפל בלוכסנים
+    //            .Replace("\"", "'")    // מחליף גרשיים כפולות בבודדות
+    //            .Replace("\r", " ")    // מעיף ירידות שורה (הגורם מספר 1 לשגיאות 400)
+    //            .Replace("\n", " ")    // מעיף ירידות שורה
+    //            .Replace("\t", " ")    // מעיף טאבים
+    //            .Trim();
+
+    //        _logger.LogInformation("🔍 AdminNotesScore: Analyzing notes → '{Notes}'", safeNotes);
+
+    //        // 2. שימוש ב-Template של Semantic Kernel במקום שרשור מחרוזות רגיל
+    //        var prompt = @"
+    //            You are an HR expert analyzing staff notes. Your task is to rate an employee based on the provided admin note.
+    //            Note: ""{{$notes}}""
+
+    //            Rate the employee on a scale of 1 (Poor/High Risk) to 10 (Excellent/Asset) for the following criteria:
+    //            1. Reliability: Consistency, Punctuality, and commitment.
+    //            2. SkillDepth: Proficiency and mastery of the job role.
+    //            3. Attitude: Positivity, teamwork ability, and problem-solving skills.
+
+    //            Return ONLY a JSON object, strictly following this schema:
+    //            { ""reliability"": 5, ""skill_depth"": 5, ""attitude"": 5 }";
+
+    //        _logger.LogDebug("🤖 AdminNotesScore: Sending request to AI...");
+
+    //        // 3. הזרקת המשתנה בצורה בטוחה
+    //        var arguments = new KernelArguments { ["notes"] = safeNotes };
+    //        var response = await _kernel.InvokePromptAsync(prompt, arguments, cancellationToken: cancellationToken);
+
+    //        var jsonText = response.GetValue<string>()?.Trim() ?? "{}";
+
+    //        // 4. חילוץ חכם: מוודא שלוקחים רק את התוכן של ה-JSON למקרה שה-AI עטף אותו בטקסט (כמו ```json...```)
+    //        var match = Regex.Match(jsonText, @"\{.*\}", RegexOptions.Singleline);
+    //        if (match.Success)
+    //        {
+    //            jsonText = match.Value;
+    //        }
+
+    //        _logger.LogInformation("📥 AdminNotesScore: AI Response → {Json}", jsonText);
+
+    //        var rawScore = JsonSerializer.Deserialize<AdminNotesScore>(
+    //            jsonText,
+    //            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+    //        if (rawScore != null)
+    //        {
+    //            _logger.LogDebug(
+    //                "✨ AdminNotesScore: Parsed → R={R}, S={S}, A={A}",
+    //                rawScore.Reliability, rawScore.SkillDepth, rawScore.Attitude);
+
+    //            var finalScore = new AdminNotesScore(
+    //                Reliability: Math.Clamp(rawScore.Reliability, 1, 10),
+    //                SkillDepth: Math.Clamp(rawScore.SkillDepth, 1, 10),
+    //                Attitude: Math.Clamp(rawScore.Attitude, 1, 10)
+    //            );
+
+    //            _logger.LogInformation(
+    //                "✅ AdminNotesScore: Final → R={R}, S={S}, A={A} (Weight={W:F2})",
+    //                finalScore.Reliability, finalScore.SkillDepth, finalScore.Attitude, finalScore.TotalWeight);
+
+    //            return finalScore;
+    //        }
+
+    //        _logger.LogError("❌ AdminNotesScore: Failed to parse JSON → {Json}", jsonText);
+    //        return new AdminNotesScore(5, 5, 5);
+    //    }
+    //    catch (JsonException ex)
+    //    {
+    //        _logger.LogError(ex, "❌ AdminNotesScore: JSON error → Notes='{Notes}'", adminNotes);
+    //        return new AdminNotesScore(5, 5, 5);
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        _logger.LogError(ex, "❌ AdminNotesScore: Unexpected error → Notes='{Notes}'", adminNotes);
+    //        return new AdminNotesScore(5, 5, 5);
+    //    }
+    //}
+    public record CandidateContext(
+    Employee Emp,
+    EmployeeShiftAvailability Arrival,
+    ShiftScoringService.ScoreBreakdown Score
+);
 }

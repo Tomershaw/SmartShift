@@ -70,7 +70,7 @@ public class ShiftRepository : IShiftRepository
             .ToListAsync(cancellationToken);
 
         // כמה אושרו בחודש של ה-pivot לפי תאריך המשמרת בפועל
-        var monthStart = new DateTime(pivot.Year, pivot.Month, 1);
+        var monthStart = new DateTimeOffset(pivot.Year, pivot.Month, 1, 0, 0, 0, TimeSpan.Zero); ;
         var nextMonth = monthStart.AddMonths(1);
 
         var approvedMonth = await _context.ShiftRegistrations

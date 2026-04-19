@@ -38,9 +38,10 @@ public sealed class ShiftScoringService
     {
         if (employee.SkillLevel < shift.SkillLevelRequired)
         {
-            _logger.LogDebug(
-                "Employee {Id} failed skill requirement: has {Has}, needs {Needs}",
-                employee.Id, employee.SkillLevel, shift.SkillLevelRequired);
+            // שינינו ל-LogWarning כדי שזה יצעק לנו בצהוב במסך!
+            _logger.LogWarning(
+                "❌ FAILED SKILL: Employee {Name} has Skill={Has}, but Shift needs Skill={Needs}",
+                $"{employee.FirstName} {employee.LastName}", employee.SkillLevel, shift.SkillLevelRequired);
             return false;
         }
 

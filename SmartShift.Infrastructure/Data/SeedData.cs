@@ -1,9 +1,11 @@
+using Bogus;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SmartShift.Domain.Data;
 using SmartShift.Domain.Features.Employees;
 using SmartShift.Domain.Features.Scheduling;
+using System.Reflection;
 
 namespace SmartShift.Infrastructure.Data;
 
@@ -33,37 +35,92 @@ public static class SeedData
         }
     }
 
-    public static async Task SeedEmployeesAsync(ApplicationDbContext context, Guid tenantId)
+    public static async Task SeedEmployeesAsync(ApplicationDbContext context, IServiceProvider serviceProvider, Guid tenantId)
     {
         try
         {
             if (await context.Employees.AnyAsync())
                 return;
 
-            var employees = new List<Employee>
+            var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+
+            Console.WriteLine("🚀 Creating 20 unique users and employees using Reflection...");
+
+            var firstNames = new[] { "איתי", "נועה", "יוסי", "מאיה", "דורון", "עמית", "ליאור", "טל", "רוני", "שי", "אביב", "מיכל", "דניאל", "עדי", "יובל" };
+            var lastNames = new[] { "כהן", "לוי", "מזרחי", "פרץ", "ביטון", "דהן", "אברהם", "פרידמן", "מלכה", "אזולאי", "חדד", "גבאי", "סוויסה" };
+
+            var faker = new Faker();
+
+            for (int i = 0; i < 20; i++)
             {
-                new Employee("John", "Doe", "john.doe@smartshift.com", "555-0101", 3)
+                var firstName = faker.PickRandom(firstNames);
+                var lastName = faker.PickRandom(lastNames);
+                var email = faker.Internet.Email(firstName, lastName);
+                var userName = $"user_{faker.Random.Number(1000, 9999)}";
+
+                // 1. יצירת המשתמש
+                var user = new ApplicationUser
                 {
-                    TenantId = tenantId
-                },
-                new Employee("Jane", "Smith", "jane.smith@smartshift.com", "555-0102", 2)
+                    Id = Guid.NewGuid().ToString(),
+                    UserName = userName,
+                    Email = email,
+                    FullName = $"{firstName} {lastName}",
+                    TenantId = tenantId,
+                    EmailConfirmed = true,
+                    IsActive = true
+                };
+
+                var result = await userManager.CreateAsync(user, "User123!");
+
+                if (result.Succeeded)
                 {
-                    TenantId = tenantId
-                },
-                new Employee("Michael", "Johnson", "michael.johnson@smartshift.com", "555-0103", 1)
-                {
-                    TenantId = tenantId
+                    // 2. יצירת העובד דרך הבנאי התקני שלך
+                    var employee = new Employee(
+                        firstName,
+                        lastName,
+                        email,
+                        faker.Phone.PhoneNumber("054#######"),
+                        faker.Random.Int(1, 5) // SkillLevel
+                    );
+
+                    // 3. הזרקת שאר הנתונים (עקיפת ה-private set) באמצעות Reflection
+                    SetPrivatePropertyValue(employee, "Id", Guid.NewGuid());
+                    SetPrivatePropertyValue(employee, "TenantId", tenantId);
+                    SetPrivatePropertyValue(employee, "UserId", user.Id);
+                    SetPrivatePropertyValue(employee, "Gender", faker.PickRandom("Male", "Female"));
+                    SetPrivatePropertyValue(employee, "PriorityRating", faker.Random.Int(0, 10));
+                    SetPrivatePropertyValue(employee, "MaxShiftsPerWeek", faker.Random.Int(3, 5));
+                    SetPrivatePropertyValue(employee, "AdminNotes", faker.PickRandom(new[] {
+                    "עובד מצטיין, תמיד מגדיל ראש",
+                    "נוטה לאחר, דורש השגחה",
+                    "מקצוען אמיתי, מתאים לניהול",
+                    "ראש קטן, עושה מינימום",
+                    "בעיות משמעת לפעמים",
+                    "עובד חדש ויציב"
+                }));
+
+                    await context.Employees.AddAsync(employee);
+                    await userManager.AddToRoleAsync(user, "Employee");
                 }
-            };
+            }
 
-            await context.Employees.AddRangeAsync(employees);
             await context.SaveChangesAsync();
-
-            Console.WriteLine("✅ Employees seeded successfully.");
+            Console.WriteLine("✅ Successfully created 20 unique Users and Employees!");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Error seeding employees: {ex.Message}");
+            Console.WriteLine($"❌ Error seeding: {ex.Message}");
+        }
+    }
+
+    // פונקציית עזר קטנה ששמים באותו קובץ (SeedData.cs)
+    // היא יודעת לקחת אובייקט ולהזריק כוחנית ערך לתוך שדה, גם אם הוא private set
+    private static void SetPrivatePropertyValue<T>(T obj, string propertyName, object value)
+    {
+        var property = typeof(T).GetProperty(propertyName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        if (property != null && property.CanWrite)
+        {
+            property.SetValue(obj, value, null);
         }
     }
 
@@ -74,7 +131,7 @@ public static class SeedData
             if (await context.Shifts.AnyAsync())
                 return;
 
-            var employees = await context.Employees.ToListAsync();  
+            var employees = await context.Employees.ToListAsync();
 
             var shifts = new List<Shift>
             {

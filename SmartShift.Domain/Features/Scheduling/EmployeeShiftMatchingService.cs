@@ -64,8 +64,8 @@ namespace SmartShift.Domain.Services
         private bool BasicCompatibilityCheck(Employee employee, Shift shift)
         {
             // Skill requirement
-            if (employee.SkillLevel < shift.SkillLevelRequired)
-                return false;
+          //  if (employee.SkillLevel < shift.SkillLevelRequired)
+          //      return false;
 
             // TODO: If roles exist, enforce role-to-shift mapping here.
 

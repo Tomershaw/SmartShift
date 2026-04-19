@@ -284,7 +284,7 @@ if (app.Environment.IsDevelopment())
         var tenant = await context.Tenants.FirstOrDefaultAsync(t => t.Name == "אריא");
         if (tenant != null)
         {
-            await SeedData.SeedEmployeesAsync(context, tenant.Id);
+            await SeedData.SeedEmployeesAsync(context, services, tenant.Id);
             await SeedData.SeedShiftsAsync(context, tenant.Id);
             await SeedData.SeedAdminUserAsync(services, tenant.Id);
         }
